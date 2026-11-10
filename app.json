@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "AgroGestor",
+    "slug": "agrogestor",
+    "version": "2.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#12301F",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.elielfilho.agrogestor"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "backgroundColor": "#EDF1EA",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O AgroGestor usa suas fotos para anexar imagens aos registros, máquinas e animais."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#1E6B3E"
+        }
+      ]
+    ]
+  }
+}

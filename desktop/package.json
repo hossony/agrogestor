@@ -1,0 +1,34 @@
+{
+  "name": "agrogestor-desktop",
+  "version": "2.0.0",
+  "description": "AgroGestor para Windows (janela desktop da versão web do app Expo)",
+  "author": "Eliel Filho",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.elielfilho.agrogestor",
+    "productName": "AgroGestor",
+    "files": [
+      "main.js",
+      "web/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.0.0"
+  }
+}
