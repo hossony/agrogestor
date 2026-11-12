@@ -10,7 +10,8 @@ import { mapById } from '../data/maps';
 import { Appear, ProgressBar, Pressy, Pulse, Swap } from '../motion';
 import { contextTips, farmPrep } from '../prep';
 import { VideoTile } from '../video';
-import { activePlantings, plantingStatus, sellAdvice, yearFlow } from '../selectors';
+import { activePlantings, cashEstimate, plantingStatus, sellAdvice, yearFlow } from '../selectors';
+import { MODE_TIPS } from '../data/presets';
 import { useStore } from '../store';
 import { c, font } from '../theme';
 import { Badge, Btn, Card, Dot, Legend, Photo, Screen, SeasonHeader, SeasonStrip, Section, T, useConfirm, useWide } from '../ui';
@@ -42,10 +43,11 @@ function TipCard({ go }: Pick<Nav, 'go'>) {
   const pool = useMemo(
     () => [
       ...ctx.map((t) => ({ text: t.text, field: t.field, label: 'Dica para a sua fazenda' })),
+      ...(MODE_TIPS[data.settings.mode as keyof typeof MODE_TIPS] ?? []).map((text) => ({ text, field: undefined as string | undefined, label: 'Dica para o seu modo de jogo' })),
       ...(gameMap?.tips ?? []).map((text) => ({ text, field: undefined as string | undefined, label: `Dica de ${gameMap!.name}` })),
       ...QUICK_TIPS.map((text) => ({ text, field: undefined as string | undefined, label: 'Dica do jogo' })),
     ],
-    [ctx, gameMap],
+    [ctx, gameMap, data.settings.mode],
   );
   const [at, setAt] = useState(0);
   const tip = pool[at % pool.length];
@@ -91,7 +93,7 @@ function Quick({ label, icon, onPress }: { label: string; icon: React.ReactNode;
 }
 
 export default function Dashboard({ go }: Nav) {
-  const { data, now, advanceMonth, replaceAll } = useStore();
+  const { data, now, advanceMonth, closeSave } = useStore();
   const confirm = useConfirm();
   const wide = useWide();
   const st = data.settings;
@@ -122,8 +124,8 @@ export default function Dashboard({ go }: Nav) {
     >
       {st.demo ? (
         <Card style={{ backgroundColor: c.harvestSoft, borderColor: '#EBD796', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }} pad={14}>
-          <T style={{ flex: 1, minWidth: 220, color: c.harvestInk }}>Estes são dados de exemplo. Quando quiser, apague tudo e cadastre a sua fazenda do jogo.</T>
-          <Btn small kind="ghost" label="Começar do zero" onPress={() => confirm({ title: 'Começar do zero?', message: 'Os dados de exemplo serão apagados. O catálogo de culturas continua disponível.', confirmLabel: 'Apagar exemplo', onConfirm: () => replaceAll({ ...emptyData(), settings: { ...emptyData().settings, systemNotifications: st.systemNotifications } }) })} />
+          <T style={{ flex: 1, minWidth: 220, color: c.harvestInk }}>Este é um save de exemplo. Quando quiser, crie um save com o mapa e o modo do seu jogo.</T>
+          <Btn small kind="ghost" label="Criar meu save" onPress={closeSave} />
         </Card>
       ) : null}
 
@@ -132,7 +134,9 @@ export default function Dashboard({ go }: Nav) {
           <View style={{ backgroundColor: c.sidebar, borderRadius: 18, padding: 18, overflow: 'hidden' }}>
             <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 13, fontWeight: '600' }}>Resultado {ofYear(now.year, st)}</Text>
             <CountUp value={income - expense} format={(n) => money(n, st)} style={{ color: '#fff', fontSize: 36, letterSpacing: -1, marginTop: 2 }} />
-            <View style={{ flexDirection: 'row', gap: 18, marginTop: 6, marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 18, marginTop: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+              {st.startMoney !== undefined ? <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 13 }}>Caixa estimado <Text style={{ color: c.harvest, fontWeight: '700' }}>{money(cashEstimate(data), st)}</Text></Text> : null}
+              {st.loan ? <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 13 }}>Empréstimo <Text style={{ color: '#F3A99E', fontWeight: '700' }}>{money(st.loan, st)}</Text></Text> : null}
               <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 13 }}>Receitas <Text style={{ color: '#fff', fontWeight: '700' }}>{money(income, st)}</Text></Text>
               <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 13 }}>Despesas <Text style={{ color: '#fff', fontWeight: '700' }}>{money(expense, st)}</Text></Text>
             </View>

@@ -43,3 +43,4 @@ yarn-error.*
 # Desktop
 desktop/web/
 desktop/release/
+tests/e2e-mobile.png

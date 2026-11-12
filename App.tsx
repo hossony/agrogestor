@@ -15,6 +15,7 @@ import Finance from './src/screens/Finance';
 import Fleet from './src/screens/Fleet';
 import Guide from './src/screens/Guide';
 import Login from './src/screens/Login';
+import Saves from './src/screens/Saves';
 import Notifications from './src/screens/Notifications';
 import Plantings from './src/screens/Plantings';
 import Records from './src/screens/Records';
@@ -97,7 +98,7 @@ function CountBadge({ n }: { n: number }) {
 }
 
 function Sidebar({ route, go, unread }: { route: Route; go: (r: Route) => void; unread: number }) {
-  const { data, now } = useStore();
+  const { data, now, currentSave, closeSave } = useStore();
   const groups = [...new Set(ROUTES.map((r) => r.group))];
   return (
     <View style={{ width: 232, backgroundColor: c.sidebar, paddingVertical: 20, paddingHorizontal: 12 }}>
@@ -123,7 +124,10 @@ function Sidebar({ route, go, unread }: { route: Route; go: (r: Route) => void; 
       </ScrollView>
       <View style={{ paddingHorizontal: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.sidebarActive }}>
         <Text style={{ fontFamily: font, color: '#fff', fontWeight: '600', fontSize: 13.5 }} numberOfLines={1}>{data.settings.farmName}</Text>
-        <Text style={{ fontFamily: font, color: '#7F9887', fontSize: 12.5, marginTop: 2 }}>{MONTHS_FULL[now.month - 1]}, {yearLabel(now.year, data.settings)}</Text>
+        <Text style={{ fontFamily: font, color: '#7F9887', fontSize: 12.5, marginTop: 2 }}>{MONTHS_FULL[now.month - 1]}, {yearLabel(now.year, data.settings)}{currentSave?.mapName ? ` · ${currentSave.mapName}` : ''}</Text>
+        <Pressable accessibilityRole="button" onPress={closeSave} style={({ pressed }) => ({ marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: pressed ? c.sidebarActive : 'transparent', borderWidth: 1, borderColor: c.sidebarActive, alignSelf: 'flex-start' })}>
+          <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 12.5, fontWeight: '600' }}>Trocar de save</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -321,9 +325,11 @@ function Shell() {
 }
 
 function Gate() {
-  const { ready, logged } = useStore();
+  const { ready, logged, currentSave } = useStore();
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.sidebar }} />;
-  return logged ? <Shell /> : <Login />;
+  if (!logged) return <Login />;
+  if (!currentSave) return <Saves />;
+  return <Shell key={currentSave.id} />;
 }
 
 export default function App() {

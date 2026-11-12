@@ -415,7 +415,7 @@ export interface Option {
 export interface FieldDef {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'select' | 'month' | 'months' | 'toggle' | 'choice' | 'multiline' | 'photo' | 'video' | 'date';
+  type: 'text' | 'number' | 'select' | 'month' | 'months' | 'toggle' | 'choice' | 'multiline' | 'photo' | 'video' | 'date' | 'password';
   options?: Option[];
   required?: boolean;
   placeholder?: string;
@@ -550,7 +550,7 @@ export function FormSheet({
               {shown.map((f) => (
                 <View key={f.key} style={{ width: f.half ? '50%' : '100%', paddingHorizontal: 6, marginBottom: 14 }}>
                   <T v="label" style={{ marginBottom: 6, color: c.ink }}>{f.label}</T>
-                  {f.type === 'text' || f.type === 'number' || f.type === 'multiline' || f.type === 'date' ? (
+                  {f.type === 'text' || f.type === 'number' || f.type === 'multiline' || f.type === 'date' || f.type === 'password' ? (
                     <TextInput
                       value={String(values[f.key] ?? '')}
                       onChangeText={(t) => set(f.key, t)}
@@ -558,6 +558,8 @@ export function FormSheet({
                       placeholderTextColor={c.faint}
                       keyboardType={f.type === 'number' ? 'decimal-pad' : f.type === 'date' ? 'numbers-and-punctuation' : 'default'}
                       multiline={f.type === 'multiline'}
+                      secureTextEntry={f.type === 'password'}
+                      autoCapitalize={f.type === 'password' ? 'none' : undefined}
                       style={[s.input, { fontFamily: font, fontSize: 14.5, color: c.ink }, f.type === 'multiline' && { minHeight: 76, textAlignVertical: 'top' }, errors[f.key] ? { borderColor: c.danger } : null]}
                     />
                   ) : null}

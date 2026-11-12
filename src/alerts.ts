@@ -44,6 +44,9 @@ export function farmAlerts(d: Data, now: { year: number; month: number }): FarmA
 
   d.fields.filter((f) => f.weeds).forEach((f) => out.push({ id: `ervas:${f.id}`, tone: 'yellow', kind: 'solo', title: `Ervas daninhas em ${f.name}`, detail: 'Pulverize ou capine antes que a produtividade caia.', route: 'talhoes' }));
 
+  const noArea = d.fields.filter((f) => f.areaPending || !f.areaHa);
+  if (noArea.length) out.push({ id: `area:${noArea.map((f) => f.id).join(',')}`, tone: 'blue', kind: 'solo', title: noArea.length === 1 ? `Informe a área de ${noArea[0].name}` : `Informe a área de ${noArea.length} talhões`, detail: 'A área aparece no menu de Terras do jogo. Sem ela o app não calcula a produção esperada.', route: 'talhoes' });
+
   d.fields.filter((f) => f.stones).forEach((f) => out.push({ id: `pedras:${f.id}`, tone: 'yellow', kind: 'solo', title: `Pedras em ${f.name}`, detail: 'Recolha com o catador de pedras antes de cultivar ou plantar.', route: 'talhoes' }));
 
   d.animals.forEach((a) => {
