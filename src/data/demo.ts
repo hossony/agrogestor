@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gameMonth: 3,
   demo: false,
   systemNotifications: false,
+  tutorialSeen: false,
 };
 
 export const emptyData = (): Data => ({
@@ -26,6 +27,7 @@ export const emptyData = (): Data => ({
   animals: [],
   records: [],
   readAlerts: [],
+  guideRead: [],
 });
 
 /** Fazenda de exemplo: ano 2, agosto — meio da colheita de verão. */
@@ -37,7 +39,7 @@ export const demoData = (): Data => ({
     { id: 'f2', name: 'Talhão 2 (Açude)', areaHa: 6.8, ownership: 'proprio', plowed: true, limed: true, fertLevel: 1, weeds: true },
     { id: 'f3', name: 'Talhão 3 (Estrada)', areaHa: 3.1, ownership: 'proprio', plowed: true, limed: false, fertLevel: 2, weeds: false },
     { id: 'f4', name: 'Talhão 4 (Morro)', areaHa: 9.5, ownership: 'arrendado', plowed: true, limed: true, fertLevel: 1, weeds: false },
-    { id: 'f5', name: 'Talhão 5 (Baixada)', areaHa: 5.4, ownership: 'proprio', plowed: false, limed: false, fertLevel: 0, weeds: false },
+    { id: 'f5', name: 'Talhão 5 (Baixada)', areaHa: 5.4, ownership: 'proprio', plowed: false, limed: false, fertLevel: 0, weeds: false, stones: true },
     { id: 'f6', name: 'Talhão 6 (Divisa)', areaHa: 2.6, ownership: 'proprio', plowed: true, limed: true, fertLevel: 2, weeds: false },
   ],
   plantings: [

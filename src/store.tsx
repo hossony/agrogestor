@@ -17,6 +17,7 @@ interface Store {
   replaceAll: (next: Data) => void;
   advanceMonth: () => void;
   markRead: (ids: string[]) => void;
+  toggleGuide: (id: string, read?: boolean) => void;
   logged: boolean;
   login: (remember: boolean) => void;
   logout: () => void;
@@ -87,7 +88,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
   }, []);
 
-  const replaceAll = useCallback((next: Data) => setData(next), []);
+  const replaceAll = useCallback(
+    (next: Data) =>
+      setData((d) => ({
+        ...emptyData(),
+        ...next,
+        guideRead: next.guideRead ?? d.guideRead,
+        settings: { ...emptyData().settings, ...next.settings, tutorialSeen: next.settings?.tutorialSeen || d.settings.tutorialSeen },
+      })),
+    [],
+  );
 
   const advanceMonth = useCallback(() => {
     setData((d) => {
@@ -104,6 +114,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const toggleGuide = useCallback((id: string, read?: boolean) => {
+    setData((d) => {
+      const has = d.guideRead.includes(id);
+      const want = read ?? !has;
+      if (want === has) return d;
+      return { ...d, guideRead: want ? [...d.guideRead, id] : d.guideRead.filter((x) => x !== id) };
+    });
+  }, []);
+
   const login = useCallback((remember: boolean) => {
     setLogged(true);
     if (remember) AsyncStorage.setItem(SESSION_KEY, '1').catch(() => {});
@@ -114,8 +133,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Store>(
-    () => ({ data, ready, now: now(data.settings), save, remove, setSettings, replaceAll, advanceMonth, markRead, logged, login, logout }),
-    [data, ready, save, remove, setSettings, replaceAll, advanceMonth, markRead, logged, login, logout],
+    () => ({ data, ready, now: now(data.settings), save, remove, setSettings, replaceAll, advanceMonth, markRead, toggleGuide, logged, login, logout }),
+    [data, ready, save, remove, setSettings, replaceAll, advanceMonth, markRead, toggleGuide, logged, login, logout],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

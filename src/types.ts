@@ -11,6 +11,8 @@ export interface Settings {
   gameMonth: number;
   demo: boolean;
   systemNotifications: boolean;
+  /** Já viu o tutorial de boas-vindas. */
+  tutorialSeen?: boolean;
 }
 
 export interface Field {
@@ -22,6 +24,8 @@ export interface Field {
   limed: boolean;
   fertLevel: number;
   weeds: boolean;
+  /** Pedras no campo (aparecem depois de arar ou cultivar). */
+  stones?: boolean;
   notes?: string;
 }
 
@@ -143,6 +147,8 @@ export interface LogEntry {
   year: number;
   month: number;
   photo?: string;
+  /** Vídeo do trabalho (colhendo, plantando...). */
+  video?: string;
   notes?: string;
 }
 
@@ -159,6 +165,8 @@ export interface Data {
   animals: Animal[];
   records: LogEntry[];
   readAlerts: string[];
+  /** Tópicos do guia marcados como lidos. */
+  guideRead: string[];
 }
 
 export type Collection = 'fields' | 'crops' | 'plantings' | 'sales' | 'transactions' | 'stockMoves' | 'tasks' | 'machines' | 'animals' | 'records';

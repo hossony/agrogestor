@@ -21,6 +21,7 @@ import {
 import { pickImage, usePhoto } from './media';
 import { c, font, radius, WIDE } from './theme';
 import { brToIso, MONTHS, parseNum } from './utils';
+import { VideoInput } from './video';
 
 export const useWide = () => useWindowDimensions().width >= WIDE;
 
@@ -221,6 +222,7 @@ export function DetailSheet({
   subtitle,
   photo,
   fallback,
+  media,
   rows,
   children,
   onEdit,
@@ -232,6 +234,8 @@ export function DetailSheet({
   subtitle?: string;
   photo?: string;
   fallback?: React.ReactNode;
+  /** Mostrado no topo, antes da foto (ex.: player de vídeo). */
+  media?: React.ReactNode;
   rows: [string, string | undefined | null | false][];
   children?: React.ReactNode;
   onEdit?: () => void;
@@ -245,7 +249,8 @@ export function DetailSheet({
       <View style={[s.backdrop, !wide && { justifyContent: 'flex-end', padding: 0 }]}>
         <View style={[s.sheet, wide ? { width: 620, maxHeight: '90%' } : { width: '100%', maxHeight: '94%', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}>
           <ScrollView style={Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : undefined}>
-            {photo || fallback ? <Photo uri={photo} style={{ width: '100%', aspectRatio: photo ? 16 / 10 : 16 / 5 }} fallback={fallback} /> : null}
+            {media}
+            {photo || (fallback && !media) ? <Photo uri={photo} style={{ width: '100%', aspectRatio: photo ? 16 / 10 : 16 / 5 }} fallback={fallback} /> : null}
             <View style={{ padding: 18, gap: 4 }}>
               <T v="title" style={{ fontSize: 22 }}>{title}</T>
               {subtitle ? <T v="small" style={{ fontSize: 13.5 }}>{subtitle}</T> : null}
@@ -410,7 +415,7 @@ export interface Option {
 export interface FieldDef {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'select' | 'month' | 'months' | 'toggle' | 'choice' | 'multiline' | 'photo' | 'date';
+  type: 'text' | 'number' | 'select' | 'month' | 'months' | 'toggle' | 'choice' | 'multiline' | 'photo' | 'video' | 'date';
   options?: Option[];
   required?: boolean;
   placeholder?: string;
@@ -557,6 +562,7 @@ export function FormSheet({
                     />
                   ) : null}
                   {f.type === 'photo' ? <PhotoInput value={values[f.key]} onChange={(v) => set(f.key, v)} /> : null}
+                  {f.type === 'video' ? <VideoInput value={values[f.key]} onChange={(v) => set(f.key, v)} /> : null}
                   {f.type === 'select' ? <Select value={values[f.key] ?? ''} options={f.options ?? []} onChange={(v) => set(f.key, v)} placeholder={f.placeholder} /> : null}
                   {f.type === 'choice' ? <Segmented value={values[f.key] ?? ''} options={f.options ?? []} onChange={(v) => set(f.key, v)} /> : null}
                   {f.type === 'month' ? <MonthPicker value={values[f.key]} onChange={(v) => set(f.key, v)} /> : null}

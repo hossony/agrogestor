@@ -44,6 +44,8 @@ export function farmAlerts(d: Data, now: { year: number; month: number }): FarmA
 
   d.fields.filter((f) => f.weeds).forEach((f) => out.push({ id: `ervas:${f.id}`, tone: 'yellow', kind: 'solo', title: `Ervas daninhas em ${f.name}`, detail: 'Pulverize ou capine antes que a produtividade caia.', route: 'talhoes' }));
 
+  d.fields.filter((f) => f.stones).forEach((f) => out.push({ id: `pedras:${f.id}`, tone: 'yellow', kind: 'solo', title: `Pedras em ${f.name}`, detail: 'Recolha com o catador de pedras antes de cultivar ou plantar.', route: 'talhoes' }));
+
   d.animals.forEach((a) => {
     if (a.health < 60) out.push({ id: `saude:${a.id}:${stamp}`, tone: 'red', kind: 'animal', title: `Saúde baixa: ${a.name}`, detail: `${a.species} com ${Math.round(a.health)}% de saúde. Confira comida, água e palha.`, route: 'animais' });
     else if (a.capacity > 0 && a.count >= a.capacity) out.push({ id: `lotado:${a.id}:${a.count}`, tone: 'yellow', kind: 'animal', title: `${a.name} está cheio`, detail: `${a.count} de ${a.capacity} vagas. Venda animais ou amplie o espaço.`, route: 'animais' });

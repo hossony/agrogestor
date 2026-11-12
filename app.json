@@ -27,7 +27,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "O AgroGestor usa suas fotos para anexar imagens aos registros, máquinas e animais."
+          "photosPermission": "O AgroGestor usa suas fotos para anexar imagens aos registros, máquinas e animais.",
+          "cameraPermission": "O AgroGestor usa a câmera para gravar vídeos dos trabalhos no campo para o diário.",
+          "microphonePermission": "O AgroGestor usa o microfone para gravar o som dos vídeos do diário."
         }
       ],
       [
@@ -35,7 +37,8 @@
         {
           "color": "#1E6B3E"
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

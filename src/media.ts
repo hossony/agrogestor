@@ -5,9 +5,11 @@ import { Platform } from 'react-native';
 import { uid } from './utils';
 
 /**
- * Fotos do diário, da frota e dos animais.
+ * Fotos e vídeos do diário, da frota e dos animais.
  * - Android: a imagem é copiada para a pasta de documentos do app.
  * - Web e Windows: é reduzida e guardada no IndexedDB; o registro guarda "idb:<id>".
+ * - Vídeos: no Android vão para documentos/videos; no web/Windows o arquivo
+ *   inteiro (Blob) vai para o IndexedDB e o registro guarda "idbv:<id>".
  */
 
 const DB = 'agrogestor-fotos';
@@ -23,9 +25,9 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-async function idbSet(id: string, value: string | null) {
-  if (value) memory.set(id, value);
-  else memory.delete(id);
+async function idbSet(id: string, value: string | Blob | null) {
+  if (typeof value === 'string') memory.set(id, value);
+  else if (!value) memory.delete(id);
   try {
     const db = await openDb();
     await new Promise<void>((resolve, reject) => {
@@ -40,16 +42,21 @@ async function idbSet(id: string, value: string | null) {
   }
 }
 
+async function idbRaw(id: string): Promise<string | Blob | null> {
+  const db = await openDb();
+  return new Promise<string | Blob | null>((resolve, reject) => {
+    const req = db.transaction(STORE).objectStore(STORE).get(id);
+    req.onsuccess = () => resolve((req.result as string | Blob) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
 async function idbGet(id: string): Promise<string | null> {
   if (memory.has(id)) return memory.get(id)!;
   try {
-    const db = await openDb();
-    const value = await new Promise<string | null>((resolve, reject) => {
-      const req = db.transaction(STORE).objectStore(STORE).get(id);
-      req.onsuccess = () => resolve((req.result as string) ?? null);
-      req.onerror = () => reject(req.error);
-    });
-    if (value) memory.set(id, value);
+    const value = await idbRaw(id);
+    if (typeof value !== 'string') return null;
+    memory.set(id, value);
     return value;
   } catch {
     return null;
@@ -96,7 +103,12 @@ export async function pickImage(): Promise<string | null> {
 export async function deleteImage(ref?: string) {
   if (!ref) return;
   try {
-    if (ref.startsWith('idb:')) await idbSet(ref.slice(4), null);
+    if (ref.startsWith('idbv:')) {
+      const url = videoUrls.get(ref.slice(5));
+      if (url) URL.revokeObjectURL(url);
+      videoUrls.delete(ref.slice(5));
+      await idbSet(ref.slice(5), null);
+    } else if (ref.startsWith('idb:')) await idbSet(ref.slice(4), null);
     else if (Platform.OS !== 'web') new FileSystem.File(ref).delete();
   } catch {
     // Arquivo já não existe.
@@ -117,5 +129,72 @@ export function usePhoto(ref?: string): string | null {
       alive = false;
     };
   }, [ref]);
+  return uri;
+}
+
+/* ---------- Vídeos ---------- */
+
+/** Limite para não lotar o armazenamento do navegador/Windows. */
+export const MAX_VIDEO_MB = 400;
+const videoUrls = new Map<string, string>();
+
+export type VideoPick = { ref: string } | { error: string } | null;
+
+/** Abre a galeria (ou a câmera, no celular) e guarda o vídeo escolhido. */
+export async function pickVideo(source: 'library' | 'camera' = 'library'): Promise<VideoPick> {
+  if (source === 'camera') {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return { error: 'Sem permissão para usar a câmera.' };
+  }
+  const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['videos'], videoMaxDuration: 600, quality: 1 };
+  const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+  if (res.canceled || !res.assets?.length) return null;
+  const asset = res.assets[0];
+  if (Platform.OS === 'web') {
+    try {
+      const blob: Blob = asset.file ?? (await (await fetch(asset.uri)).blob());
+      if (blob.size > MAX_VIDEO_MB * 1024 * 1024) return { error: `Vídeo muito grande (${Math.round(blob.size / 1048576)} MB). O limite é ${MAX_VIDEO_MB} MB: corte o vídeo ou grave em resolução menor.` };
+      const id = uid();
+      await idbSet(id, blob);
+      videoUrls.set(id, URL.createObjectURL(blob));
+      return { ref: `idbv:${id}` };
+    } catch {
+      return { error: 'Não foi possível ler este vídeo.' };
+    }
+  }
+  try {
+    const dir = new FileSystem.Directory(FileSystem.Paths.document, 'videos');
+    if (!dir.exists) dir.create();
+    const ext = (asset.uri.split('.').pop() ?? 'mp4').split('?')[0].slice(0, 4) || 'mp4';
+    const dest = new FileSystem.File(dir, `${uid()}.${ext}`);
+    new FileSystem.File(asset.uri).copy(dest);
+    return { ref: dest.uri };
+  } catch {
+    return { ref: asset.uri };
+  }
+}
+
+/** Converte a referência do vídeo em uma URL tocável. */
+export function useVideo(ref?: string): string | null {
+  const id = ref?.startsWith('idbv:') ? ref.slice(5) : null;
+  const [uri, setUri] = useState<string | null>(ref && !id ? ref : id ? videoUrls.get(id) ?? null : null);
+  useEffect(() => {
+    let alive = true;
+    if (!ref) setUri(null);
+    else if (!id) setUri(ref);
+    else if (videoUrls.has(id)) setUri(videoUrls.get(id)!);
+    else
+      idbRaw(id)
+        .then((v) => {
+          if (!alive || !(v instanceof Blob)) return;
+          const url = URL.createObjectURL(v);
+          videoUrls.set(id, url);
+          setUri(url);
+        })
+        .catch(() => alive && setUri(null));
+    return () => {
+      alive = false;
+    };
+  }, [ref, id]);
   return uri;
 }
