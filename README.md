@@ -59,6 +59,7 @@ src/video.tsx         player de vídeo e campo de vídeo do formulário
 src/motion.tsx        animações (entrada em cascata, toque com mola, acordeão, confete)
 src/prep.ts           assistente de preparo: próxima etapa de cada talhão
 src/data/guide.ts     conteúdo do guia, situações, dicas e tutorial
+src/data/maps.ts      mapas padrão do FS25: lotes iniciais, pontos de venda, produções e dicas
 src/alerts.ts         regras dos avisos
 src/notify.ts         notificações do sistema (Android e Windows)
 src/anim.tsx          contadores animados
@@ -89,6 +90,12 @@ A tela **Guia e dicas** (ícone de capelo no topo do celular, ou na barra latera
 - **O que fazer se…:** pedras, ervas daninhas (antes de plantar, lavoura pequena, lavoura alta), calcário, aração, lavoura murcha, pisoteio, dívida, preço baixo, silo cheio, máquina quebrada, animais doentes, ajudante parado e arroz sem água.
 - **Dicas:** dica do dia, dicas para a sua fazenda calculadas a partir dos talhões e a lista completa.
 - **Tutorial do app:** o mesmo tutorial que aparece no primeiro acesso. Para vê-lo de novo ao abrir o app, use Ajustes > Ver tutorial de novo.
+
+- **Mapas:** os três mapas que vêm com o FS25. Riverbend Springs (EUA), Zielonka (Europa) e Hutan Pantai (Ásia), com lotes iniciais, pontos de venda, produções e dicas próprias. O mapa escolhido (aqui ou em Ajustes) muda as dicas do Painel.
+
+Em **Talhões > Talhões do mapa** você cadastra vários campos de uma vez com o número do jogo. Os lotes iniciais conhecidos (Zielonka 45 e 46; Hutan Pantai 27, 28, 30 e 31) já vêm preenchidos. Para os demais campos, informe a área do menu de Terras do jogo, porque ela muda quando você junta ou divide campos. Arrozais ganham a etapa "Alagar o arrozal" no Assistente.
+
+Os dados dos mapas vêm de guias da comunidade e da wiki do jogo. Atualizações podem mudar números de lotes e pontos de venda.
 
 Cada tópico pode ser marcado como aprendido; o progresso aparece no topo do Guia. A busca encontra qualquer palavra (por exemplo "chorume" ou "pedras").
 

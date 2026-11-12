@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, ChevronRight, CircleCheck, Lightbulb, Search, Shuffle, Sprout, Wrench } from 'lucide-react-native';
+import { AlertTriangle, Check, ChevronRight, CircleCheck, Factory, Globe, Lightbulb, Search, Shuffle, Sprout, Store, Wrench } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Animated, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { GUIDE, GuideCategory, GuideTopic, QUICK_TIPS, SITUATIONS, Situation } from '../data/guide';
@@ -9,9 +9,11 @@ import { c, font, radius } from '../theme';
 import { Badge, Btn, Card, Empty, Screen, Segmented, T, useWide } from '../ui';
 import { isoToBr, todayIso } from '../utils';
 import { Nav } from './common';
+import { GameMap, MAPS } from '../data/maps';
+import { MapFieldsSheet } from './MapFields';
 import { GUIDE_ICONS, TutorialCarousel } from './Tutorial';
 
-type Tab = 'assistente' | 'guia' | 'situacoes' | 'dicas' | 'tutorial';
+type Tab = 'assistente' | 'mapas' | 'guia' | 'situacoes' | 'dicas' | 'tutorial';
 const TONE = { red: c.danger, yellow: c.harvest, blue: c.sell, green: c.primary };
 const ALL_TOPICS = GUIDE.flatMap((g) => g.topics.map((t) => ({ ...t, cat: g })));
 const TOTAL = ALL_TOPICS.length + SITUATIONS.length;
@@ -275,6 +277,84 @@ function FieldPrepCard({ p, open, onToggle, onHelp, index, go }: { p: FieldPrep;
   );
 }
 
+/* ---------- Mapas ---------- */
+
+function Chips({ items, icon }: { items: string[]; icon: React.ReactNode }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {items.map((x) => (
+        <View key={x} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 14, backgroundColor: c.surfaceAlt, borderWidth: 1, borderColor: c.line }}>
+          {icon}
+          <Text style={{ fontFamily: font, fontSize: 12.5, color: c.ink }}>{x}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function MapCard({ m, open, selected, onToggle, onSelect, onImport, index }: { m: GameMap; open: boolean; selected: boolean; onToggle: () => void; onSelect: () => void; onImport: () => void; index: number }) {
+  return (
+    <Appear index={index}>
+      <Card pad={0} style={{ overflow: 'hidden', borderColor: selected ? m.color : c.line, borderWidth: selected ? 2 : 1 }}>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={onToggle} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }, pressed && { backgroundColor: c.surfaceAlt }]}>
+          <View style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: m.color, alignItems: 'center', justifyContent: 'center' }}>
+            <Globe size={20} color="#fff" />
+            <Text style={{ fontFamily: font, color: '#fff', fontSize: 10, fontWeight: '800', marginTop: 1 }}>{m.tag}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <T v="h2">{m.name}</T>
+              {selected ? <Pulse amount={0.05}><Badge tone="green" label="Seu mapa" /></Pulse> : null}
+            </View>
+            <T v="small">{m.region}</T>
+            <T v="small" numberOfLines={open ? undefined : 1} style={{ color: c.ink }}>{m.summary}</T>
+          </View>
+          <Chevron open={open} />
+        </Pressable>
+        <Collapse open={open}>
+          <View style={{ paddingHorizontal: 14, paddingBottom: 16, gap: 14 }}>
+            <View>
+              {m.facts.map(([k, v]) => (
+                <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: c.line }}>
+                  <T style={{ color: c.muted }}>{k}</T>
+                  <T style={{ fontWeight: '600', flexShrink: 1, textAlign: 'right' }}>{v}</T>
+                </View>
+              ))}
+            </View>
+            {m.startLots.length ? (
+              <View style={{ gap: 6 }}>
+                <T v="label" style={{ color: c.ink }}>Lotes iniciais</T>
+                {m.startLots.map((l) => (
+                  <View key={l.no} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <Badge tone={l.rice ? 'blue' : 'green'} label={`Lote ${l.no}`} />
+                    <T v="small" style={{ flex: 1 }}>{[l.areaHa ? `${String(l.areaHa).replace('.', ',')} ha` : null, l.note].filter(Boolean).join(' · ')}</T>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            <View style={{ gap: 6 }}>
+              <T v="label" style={{ color: c.ink }}>Pontos de venda</T>
+              <Chips items={m.sellPoints} icon={<Store size={12} color={c.sell} />} />
+            </View>
+            <View style={{ gap: 6 }}>
+              <T v="label" style={{ color: c.ink }}>Produções</T>
+              <Chips items={m.productions} icon={<Factory size={12} color={c.harvestInk} />} />
+            </View>
+            <View style={{ gap: 6 }}>
+              <T v="label" style={{ color: c.ink }}>Dicas deste mapa</T>
+              <Tips tips={m.tips} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {!selected ? <Btn small label="Este é o meu mapa" onPress={onSelect} /> : null}
+              <Btn small kind={selected ? 'primary' : 'ghost'} label="Cadastrar talhões deste mapa" onPress={onImport} />
+            </View>
+          </View>
+        </Collapse>
+      </Card>
+    </Appear>
+  );
+}
+
 /* ---------- Tela ---------- */
 
 export default function Guide({ go, intent }: Nav) {
@@ -286,6 +366,8 @@ export default function Guide({ go, intent }: Nav) {
   const [openSit, setOpenSit] = useState<string | null>(null);
   const [openField, setOpenField] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [openMap, setOpenMap] = useState<string | null>(data.settings.map ?? 'riverbend');
+  const [importing, setImporting] = useState(false);
   const [tipAt, setTipAt] = useState(() => (now.year * 12 + now.month) % QUICK_TIPS.length);
 
   const prep = useMemo(() => farmPrep(data, now.month), [data, now.month]);
@@ -295,6 +377,11 @@ export default function Guide({ go, intent }: Nav) {
   /** Abre o tópico ou a situação com esse id, onde estiver. */
   const openGuide = (id: string) => {
     setQuery('');
+    if (id.startsWith('mapa:')) {
+      setTab('mapas');
+      setOpenMap(id.slice(5));
+      return;
+    }
     const sit = SITUATIONS.find((s) => s.id === id);
     if (sit) {
       setTab('situacoes');
@@ -311,7 +398,7 @@ export default function Guide({ go, intent }: Nav) {
 
   useEffect(() => {
     if (!intent) return;
-    if (intent === 'tutorial' || intent === 'dicas' || intent === 'situacoes' || intent === 'guia' || intent === 'assistente') setTab(intent);
+    if (['tutorial', 'dicas', 'situacoes', 'guia', 'assistente', 'mapas'].includes(intent)) setTab(intent as Tab);
     else if (intent.startsWith('ver:')) openGuide(intent.slice(4));
     else if (intent.startsWith('talhao:')) {
       setTab('assistente');
@@ -325,6 +412,7 @@ export default function Guide({ go, intent }: Nav) {
     ? [
         ...ALL_TOPICS.filter((t) => norm([t.title, t.summary, ...(t.steps ?? []).map((s) => `${s.title} ${s.text} ${s.tool ?? ''}`), ...(t.tips ?? []), t.warning ?? ''].join(' ')).includes(q)).map((t) => ({ id: t.id, title: t.title, sub: `${t.cat.title} · ${t.summary}` })),
         ...SITUATIONS.filter((s) => norm([s.problem, s.signs, ...s.fix, s.prevent ?? ''].join(' ')).includes(q)).map((s) => ({ id: s.id, title: s.problem, sub: `O que fazer se… · ${s.signs}` })),
+        ...MAPS.filter((m) => norm([m.name, m.region, m.summary, ...m.tips, ...m.sellPoints, ...m.productions].join(' ')).includes(q)).map((m) => ({ id: `mapa:${m.id}`, title: m.name, sub: `Mapa · ${m.region}` })),
       ]
     : [];
 
@@ -373,6 +461,7 @@ export default function Guide({ go, intent }: Nav) {
             onChange={setTab}
             options={[
               { value: 'assistente', label: pending ? `Assistente (${pending})` : 'Assistente' },
+              { value: 'mapas', label: 'Mapas' },
               { value: 'guia', label: 'Passo a passo' },
               { value: 'situacoes', label: 'O que fazer se…' },
               { value: 'dicas', label: 'Dicas' },
@@ -459,6 +548,32 @@ export default function Guide({ go, intent }: Nav) {
                   </Appear>
                 ))}
               </Card>
+            </View>
+          ) : null}
+
+          {tab === 'mapas' ? (
+            <View style={{ gap: 12 }}>
+              <T v="small" style={{ fontSize: 13.5 }}>Os três mapas que vêm com o Farming Simulator 25. Escolha o seu para ver dicas específicas no Painel e cadastrar os talhões com o número do jogo.</T>
+              {MAPS.map((m, i) => (
+                <MapCard
+                  key={m.id}
+                  m={m}
+                  index={i}
+                  open={openMap === m.id}
+                  selected={data.settings.map === m.id}
+                  onToggle={() => setOpenMap(openMap === m.id ? null : m.id)}
+                  onSelect={() => {
+                    setSettings({ map: m.id });
+                    celebrate();
+                  }}
+                  onImport={() => {
+                    setSettings({ map: m.id });
+                    setImporting(true);
+                  }}
+                />
+              ))}
+              <T v="small">Dados reunidos de guias da comunidade e da wiki do jogo. Atualizações do jogo podem mudar números de lotes e pontos de venda: confira no mapa do seu jogo salvo.</T>
+              <MapFieldsSheet visible={importing} onClose={() => setImporting(false)} />
             </View>
           ) : null}
 
