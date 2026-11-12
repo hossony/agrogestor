@@ -43,6 +43,7 @@ export default function Fields({ go }: Nav) {
     if (f.fertLevel < 2) out.push(`Adubar (${f.fertLevel}/2)`);
     if (f.weeds) out.push('Ervas daninhas');
     if (f.stones) out.push('Pedras');
+    if (f.areaPending || !f.areaHa) out.push('Informe a área');
     if (f.rice && !f.flooded && !active.some((x) => x.fieldId === f.id)) out.push('Alagar');
     return out;
   };
@@ -65,12 +66,12 @@ export default function Fields({ go }: Nav) {
         <DataList
           rows={data.fields}
           actions={(f) => (pending(f).length ? <Btn small kind="ghost" label="Assistente" icon={<GraduationCap size={14} color={c.ink} />} onPress={() => go('guia', `talhao:${f.id}`)} /> : null)}
-          onEdit={(f) => setEditing({ ...f, fertLevel: String(f.fertLevel), mapNo: f.mapNo ?? '' })}
+          onEdit={(f) => setEditing({ ...f, areaHa: f.areaPending ? '' : f.areaHa, fertLevel: String(f.fertLevel), mapNo: f.mapNo ?? '' })}
           onDelete={(f) => confirm({ title: `Excluir ${f.name}?`, message: 'As safras registradas neste talhão também serão excluídas.', confirmLabel: 'Excluir talhão', onConfirm: () => remove('fields', f.id) })}
           columns={[
             { label: 'Talhão', flex: 2, render: (f) => (f.rice ? `${f.name} · arrozal` : f.name) },
             { label: 'Nº no mapa', render: (f) => (f.mapNo ? String(f.mapNo) : '—') },
-            { label: 'Área', align: 'right', render: (f) => `${num(f.areaHa, 1)} ha` },
+            { label: 'Área', align: 'right', render: (f) => (f.areaPending || !f.areaHa ? '—' : `${num(f.areaHa, 1)} ha`) },
             { label: 'Posse', render: (f) => (f.ownership === 'proprio' ? 'Próprio' : 'Arrendado') },
             {
               label: 'No campo',
@@ -86,7 +87,7 @@ export default function Fields({ go }: Nav) {
               render: (f) => {
                 const list = pending(f);
                 return list.length ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>{list.map((x) => <Badge key={x} tone={x === 'Ervas daninhas' || x === 'Pedras' ? 'red' : x === 'Alagar' ? 'blue' : 'yellow'} label={x} />)}</View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>{list.map((x) => <Badge key={x} tone={x === 'Ervas daninhas' || x === 'Pedras' || x === 'Informe a área' ? 'red' : x === 'Alagar' ? 'blue' : 'yellow'} label={x} />)}</View>
                 ) : (
                   <Badge tone="green" label="Solo em ordem" />
                 );
@@ -104,7 +105,7 @@ export default function Fields({ go }: Nav) {
         submitLabel="Salvar talhão"
         onClose={() => setEditing(null)}
         onSubmit={(v) => {
-          save('fields', { ...v, fertLevel: Number(v.fertLevel), mapNo: v.mapNo ? Math.round(v.mapNo) : undefined } as Field);
+          save('fields', { ...v, areaPending: !(v.areaHa > 0), fertLevel: Number(v.fertLevel), mapNo: v.mapNo ? Math.round(v.mapNo) : undefined } as Field);
           setEditing(null);
         }}
       />

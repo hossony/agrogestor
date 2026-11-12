@@ -2,7 +2,8 @@ import * as Clipboard from 'expo-clipboard';
 import { Copy, Upload } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { demoData, emptyData } from '../data/demo';
+import { emptyData } from '../data/demo';
+import { START_MODES } from '../data/presets';
 import { enableSystemNotifications } from '../notify';
 import { useStore } from '../store';
 import { c } from '../theme';
@@ -21,11 +22,12 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 export default function Settings() {
-  const { data, setSettings, replaceAll, logout } = useStore();
+  const { data, setSettings, replaceAll, logout, user, currentSave, closeSave, changePassword } = useStore();
   const confirm = useConfirm();
   const st = data.settings;
-  const [sheet, setSheet] = useState<'farm' | 'period' | 'restore' | null>(null);
+  const [sheet, setSheet] = useState<'farm' | 'period' | 'restore' | 'password' | null>(null);
   const [message, setMessage] = useState('');
+  const [pwMsg, setPwMsg] = useState('');
 
   const farmForm: FieldDef[] = [
     { key: 'farmName', label: 'Nome da fazenda', type: 'text', required: true },
@@ -79,7 +81,10 @@ export default function Settings() {
 
       <Section title="Mapa do jogo">
         <T v="small" style={{ marginBottom: 10 }}>{mapById(st.map) ? `${mapById(st.map)!.name}, ${mapById(st.map)!.region}. As dicas do Painel e do Guia seguem este mapa.` : 'Escolha o mapa do seu jogo salvo para receber dicas específicas.'}</T>
-        <Segmented value={st.map ?? 'outro'} onChange={(v) => setSettings({ map: v })} options={[...MAPS.map((m) => ({ value: m.id, label: m.name })), { value: 'outro', label: 'Outro / mod' }]} />
+        <Segmented value={st.map ?? 'outro'} onChange={(v) => setSettings({ map: v })} options={[...MAPS.map((m) => ({ value: m.id, label: m.name })), { value: 'outro', label: st.mapName && !mapById(st.map) ? st.mapName : 'Outro / mod' }]} />
+        {st.mode ? <View style={{ marginTop: 10 }}><Line label="Modo de início" value={START_MODES.find((m) => m.id === st.mode)?.name ?? st.mode} /></View> : null}
+        {st.startMoney !== undefined ? <Line label="Dinheiro inicial" value={`${st.currency} ${num(st.startMoney)}`} /> : null}
+        {st.loan ? <Line label="Empréstimo inicial" value={`${st.currency} ${num(st.loan)}`} /> : null}
       </Section>
 
       <Section title="Tutorial e guia">
@@ -99,20 +104,44 @@ export default function Settings() {
         {message ? <T v="small" style={{ marginTop: 10, color: c.primaryDark }}>{message}</T> : null}
       </Section>
 
-      <Section title="Acesso">
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-          <T>Conectado como fazenda boaz.</T>
-          <Btn small kind="ghost" label="Sair" onPress={logout} />
+      <Section title="Conta">
+        <Line label="Nome" value={user?.name ?? ''} />
+        <Line label="Usuário" value={`@${user?.username ?? ''}`} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+          <Btn small kind="ghost" label="Trocar senha" onPress={() => setSheet('password')} />
+          <Btn small kind="ghost" label="Trocar de save" onPress={closeSave} />
+          <Btn small kind="ghost" label="Sair da conta" onPress={logout} />
         </View>
+        {pwMsg ? <T v="small" style={{ marginTop: 10, color: pwMsg === 'Senha trocada.' ? c.primaryDark : c.danger }}>{pwMsg}</T> : null}
       </Section>
 
-      <Section title="Dados">
+      <Section title="Dados deste save">
+        <T v="small" style={{ marginBottom: 10 }}>Save "{currentSave?.name}". Apagar limpa só este save; os outros saves e a conta continuam.</T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <Btn small kind="ghost" label="Carregar fazenda de exemplo" onPress={() => confirm({ title: 'Carregar o exemplo?', message: 'Os dados atuais serão substituídos pela fazenda de exemplo.', confirmLabel: 'Carregar exemplo', onConfirm: () => replaceAll(demoData()) })} />
-          <Btn small kind="danger" label="Apagar tudo" onPress={() => confirm({ title: 'Apagar todos os dados?', message: 'Talhões, safras, vendas, lançamentos, tarefas e máquinas serão apagados. Faça um backup antes se quiser guardar.', confirmLabel: 'Apagar tudo', onConfirm: () => replaceAll({ ...emptyData(), settings: { ...st, demo: false } }) })} />
+          <Btn small kind="danger" label="Apagar dados deste save" onPress={() => confirm({ title: 'Apagar os dados deste save?', message: 'Talhões, safras, vendas, lançamentos, tarefas, máquinas e animais deste save serão apagados. Faça um backup antes se quiser guardar.', confirmLabel: 'Apagar dados', onConfirm: () => replaceAll({ ...emptyData(), settings: { ...st, demo: false } }) })} />
         </View>
       </Section>
 
+      <FormSheet
+        visible={sheet === 'password'}
+        title="Trocar senha"
+        fields={[
+          { key: 'current', label: 'Senha atual', type: 'password', required: true },
+          { key: 'next', label: 'Nova senha', type: 'password', required: true, hint: 'Pelo menos 6 caracteres.' },
+        ]}
+        initial={{ current: '', next: '' }}
+        submitLabel="Trocar senha"
+        onClose={() => setSheet(null)}
+        onSubmit={async (v) => {
+          try {
+            await changePassword(v.current, v.next);
+            setPwMsg('Senha trocada.');
+          } catch (e: any) {
+            setPwMsg(e?.message ?? 'Não foi possível trocar a senha.');
+          }
+          setSheet(null);
+        }}
+      />
       <FormSheet visible={sheet === 'farm'} title="Editar fazenda" fields={farmForm} initial={st} submitLabel="Salvar ajustes" onClose={() => setSheet(null)} onSubmit={(v) => { setSettings({ farmName: v.farmName, currency: v.currency, qtyUnit: v.qtyUnit, pricePer: Math.max(1, v.pricePer) }); setSheet(null); }} />
       <FormSheet visible={sheet === 'period'} title="Acertar mês do jogo" fields={periodForm} initial={st} submitLabel="Salvar mês" onClose={() => setSheet(null)} onSubmit={(v) => { setSettings({ gameMonth: v.gameMonth, gameYear: Math.max(1, Math.round(v.gameYear)) }); setSheet(null); }} />
       <FormSheet

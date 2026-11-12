@@ -15,6 +15,14 @@ export interface Settings {
   tutorialSeen?: boolean;
   /** Mapa do jogo salvo: riverbend, zielonka, hutan ou outro. */
   map?: string;
+  /** Nome do mapa quando é mod ou outro mapa. */
+  mapName?: string;
+  /** Modo de início: novo fazendeiro, gerente de fazenda ou começo do zero. */
+  mode?: string;
+  /** Dinheiro escolhido ao criar o save. */
+  startMoney?: number;
+  /** Empréstimo inicial no banco. */
+  loan?: number;
 }
 
 export interface Field {
@@ -34,6 +42,8 @@ export interface Field {
   rice?: boolean;
   /** Arrozal já alagado para o plantio. */
   flooded?: boolean;
+  /** Área ainda não informada (veio do mapa sem o tamanho exato). */
+  areaPending?: boolean;
   notes?: string;
 }
 

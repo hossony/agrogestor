@@ -2,14 +2,19 @@
 
 Sistema administrativo para a sua fazenda no Farming Simulator 25: talhões, safras, colheitas, estoque, épocas de venda, financeiro, tarefas, diário de campo com imagens e vídeos, frota, animais, avisos e um guia completo de como jogar.
 
-## Acesso
+## Contas e saves
 
-O app abre em uma tela de login com um único usuário, definido em `src/auth.ts`:
+Ao abrir o app pela primeira vez, a pessoa cria uma conta (nome, usuário e senha). Cada aparelho pode ter várias contas, e cada conta tem vários **saves**, um para cada jogo salvo do FS25.
 
-- Usuário: `fazenda boaz`
-- Senha: `daviboaz123`
+Para criar um save, escolha:
 
-É uma trava local do aparelho, não uma conta online. Quem tiver o código-fonte ou o instalador consegue ler a senha, então não reutilize essa senha em outros serviços.
+1. **Mapa:** Riverbend Springs (EUA), Zielonka (Europa), Hutan Pantai (Ásia) ou outro mapa/mod (só o nome).
+2. **Modo de início:** Novo fazendeiro, Gerente de fazenda ou Começo do zero.
+3. **Fazenda:** nome, dinheiro inicial, empréstimo, moeda e mês em que o jogo começa.
+
+No **Novo fazendeiro** em um mapa oficial, o save já vem com a fazenda inicial do jogo: lotes, lavouras prontas para colher, máquinas e animais (veja `src/data/presets.ts`). Onde o jogo não informa um número exato (área de alguns lotes, quantidade de animais, valor das máquinas), o item vem marcado para a pessoa conferir. Gerente de fazenda, Começo do zero e mapas de mod começam vazios, só com o dinheiro.
+
+As contas são travas locais: ficam só no aparelho, com a senha guardada como hash (SHA-256 com sal), sem servidor. Quem usava a versão anterior (sem contas) tem os dados importados como um save na primeira conta criada.
 
 Feito em React Native (Expo SDK 58) com um único código para Android e Windows.
 
@@ -19,6 +24,14 @@ Feito em React Native (Expo SDK 58) com um único código para Android e Windows
 npm install
 npm run web        # abre no navegador
 npm run android    # abre no Expo Go ou em um emulador
+```
+
+## Testes
+
+```bash
+npm test                               # lógica: senhas, contas, saves, presets dos mapas, assistente
+npx expo export --platform web         # gera dist/ para os testes de interface
+npm run test:e2e                       # interface com Playwright (desktop e celular)
 ```
 
 ## Android (APK)
@@ -52,8 +65,10 @@ O executável não é assinado, então o Windows SmartScreen mostra um aviso na 
 App.tsx               navegação: barra lateral no desktop, abas no celular
 src/theme.ts          cores e medidas
 src/types.ts          modelo de dados
-src/auth.ts           usuário e senha do login
-src/store.tsx         estado global, sessão e gravação local (AsyncStorage)
+src/accounts.ts       contas, sessão e saves locais (testável em Node)
+src/sha256.ts         hash das senhas
+src/store.tsx         estado global: conta, saves e dados do save aberto (AsyncStorage)
+src/data/presets.ts   início de jogo de cada mapa: lotes, lavouras, máquinas, animais e modos
 src/media.ts          escolha e armazenamento das imagens e dos vídeos
 src/video.tsx         player de vídeo e campo de vídeo do formulário
 src/motion.tsx        animações (entrada em cascata, toque com mola, acordeão, confete)

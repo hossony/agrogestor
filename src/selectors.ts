@@ -107,3 +107,13 @@ export function cropProfit(d: Data, year: number) {
     .filter((x) => x.revenue || x.cost)
     .sort((a, b) => b.profit - a.profit);
 }
+
+/**
+ * Caixa estimado: dinheiro inicial do save + tudo o que entrou − tudo o que
+ * saiu (vendas e lançamentos de todos os anos). Não desconta o empréstimo.
+ */
+export function cashEstimate(d: Data): number {
+  const sales = d.sales.reduce((a, s) => a + saleTotal(s.qty, s.unitPrice, d.settings.pricePer), 0);
+  const tx = d.transactions.reduce((a, t) => a + (t.type === 'receita' ? t.amount : -t.amount), 0);
+  return (d.settings.startMoney ?? 0) + sales + tx;
+}
