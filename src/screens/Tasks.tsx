@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { Appear, celebrate } from '../motion';
 import { useStore } from '../store';
 import { c } from '../theme';
 import { Task } from '../types';
@@ -50,7 +51,7 @@ export default function Tasks({ intent }: Nav) {
           const diff = periodIndex(t.year, t.month) - nowIdx;
           const due = <Badge tone={diff < 0 ? 'red' : diff === 0 ? 'yellow' : 'neutral'} label={diff < 0 ? 'Atrasada' : diff === 0 ? 'Este mês' : diff === 1 ? 'Mês que vem' : `Em ${diff} meses`} />;
           return (
-            <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.line }}>
+            <Appear key={t.id} index={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: i ? 1 : 0, borderTopColor: c.line }}>
               <Pressable
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: t.done }}
@@ -71,7 +72,7 @@ export default function Tasks({ intent }: Nav) {
                 <IconBtn label="Editar" onPress={() => setEditing({ ...t, fieldId: t.fieldId ?? '' })}><Pencil size={16} color={c.muted} /></IconBtn>
                 <IconBtn label="Excluir" onPress={() => confirm({ title: 'Excluir esta tarefa?', message: t.title, confirmLabel: 'Excluir tarefa', onConfirm: () => remove('tasks', t.id) })}><Trash2 size={16} color={c.danger} /></IconBtn>
               </View>
-            </View>
+            </Appear>
           );
         })}
       </Card>
@@ -89,7 +90,7 @@ export default function Tasks({ intent }: Nav) {
       />
       <FormSheet
         visible={!!finishing}
-        title="Concluir tarefa"
+        title="Concluir tarefa e registrar no diário"
         fields={recordFields(data)}
         initial={{ title: finishing?.title ?? '', type: finishing?.type ?? '', fieldId: finishing?.fieldId ?? '', date: isoToBr(todayIso()), photo: undefined, notes: '' }}
         submitLabel="Concluir e registrar"
@@ -98,6 +99,7 @@ export default function Tasks({ intent }: Nav) {
           if (finishing) {
             save('tasks', { id: finishing.id, done: true });
             save('records', { ...v, fieldId: v.fieldId || undefined, taskId: finishing.id, year: now.year, month: now.month });
+            celebrate();
           }
           setFinishing(null);
         }}

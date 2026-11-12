@@ -2,14 +2,14 @@ import { FieldDef, Option, StripCell } from '../ui';
 import { Crop, Data, Planting } from '../types';
 import { periodIndex } from '../utils';
 
-export type Route = 'painel' | 'talhoes' | 'safras' | 'calendario' | 'estoque' | 'vendas' | 'financeiro' | 'tarefas' | 'diario' | 'frota' | 'animais' | 'avisos' | 'culturas' | 'ajustes';
+export type Route = 'painel' | 'talhoes' | 'safras' | 'calendario' | 'estoque' | 'vendas' | 'financeiro' | 'tarefas' | 'diario' | 'frota' | 'animais' | 'avisos' | 'culturas' | 'ajustes' | 'guia';
 export interface Nav {
   /** `intent: 'novo'` abre a tela já com o formulário de cadastro. */
   go: (r: Route, intent?: string) => void;
   intent?: string;
 }
 
-export const WORK_TYPES = ['Aração', 'Calcário', 'Adubação', 'Plantio', 'Pulverização', 'Colheita', 'Transporte', 'Manutenção', 'Venda', 'Animais', 'Outros'];
+export const WORK_TYPES = ['Aração', 'Calcário', 'Adubação', 'Plantio', 'Pulverização', 'Pedras', 'Colheita', 'Transporte', 'Manutenção', 'Venda', 'Animais', 'Outros'];
 
 /** Formulário do diário de campo, usado em Diário e ao concluir uma tarefa. */
 export const recordFields = (d: Data): FieldDef[] => [
@@ -18,6 +18,7 @@ export const recordFields = (d: Data): FieldDef[] => [
   { key: 'date', label: 'Feito em', type: 'date', required: true, half: true, placeholder: 'dd/mm/aaaa' },
   { key: 'fieldId', label: 'Talhão (opcional)', type: 'select', options: [{ value: '', label: 'Nenhum' }, ...fieldOptions(d)] },
   { key: 'photo', label: 'Imagem', type: 'photo' },
+  { key: 'video', label: 'Vídeo', type: 'video', hint: 'Ex.: um vídeo colhendo, plantando ou arando.' },
   { key: 'notes', label: 'Anotações', type: 'multiline' },
 ];
 

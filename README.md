@@ -1,6 +1,6 @@
 # AgroGestor
 
-Sistema administrativo para a sua fazenda no Farming Simulator 25: talhões, safras, colheitas, estoque, épocas de venda, financeiro, tarefas, diário de campo com imagens, frota, animais e avisos.
+Sistema administrativo para a sua fazenda no Farming Simulator 25: talhões, safras, colheitas, estoque, épocas de venda, financeiro, tarefas, diário de campo com imagens e vídeos, frota, animais, avisos e um guia completo de como jogar.
 
 ## Acesso
 
@@ -54,7 +54,11 @@ src/theme.ts          cores e medidas
 src/types.ts          modelo de dados
 src/auth.ts           usuário e senha do login
 src/store.tsx         estado global, sessão e gravação local (AsyncStorage)
-src/media.ts          escolha e armazenamento das imagens
+src/media.ts          escolha e armazenamento das imagens e dos vídeos
+src/video.tsx         player de vídeo e campo de vídeo do formulário
+src/motion.tsx        animações (entrada em cascata, toque com mola, acordeão, confete)
+src/prep.ts           assistente de preparo: próxima etapa de cada talhão
+src/data/guide.ts     conteúdo do guia, situações, dicas e tutorial
 src/alerts.ts         regras dos avisos
 src/notify.ts         notificações do sistema (Android e Windows)
 src/anim.tsx          contadores animados
@@ -76,16 +80,28 @@ desktop/              janela Electron para Windows
 - **Preço estimado do mês:** curva entre o preço mais baixo (na colheita) e o pico (melhor mês), a partir do preço médio e do preço de pico cadastrados em Culturas. É uma estimativa: no jogo o preço real varia por ponto de venda e dificuldade.
 - **Receita:** vendas de produção + lançamentos de receita.
 
-## Imagens
+## Guia e dicas
 
-Registros do diário, itens da frota e animais aceitam uma imagem da galeria do celular ou de uma pasta do computador.
+A tela **Guia e dicas** (ícone de capelo no topo do celular, ou na barra lateral) tem:
 
-- Android: a imagem é copiada para a pasta de documentos do app.
-- Windows e navegador: a imagem é reduzida para até 1280 px e guardada no IndexedDB.
+- **Assistente de preparo:** para cada talhão, as etapas que faltam na ordem certa (pedras, calcário, aração, 1ª e 2ª adubação, ervas daninhas). Ao concluir uma etapa, o talhão é atualizado e o trabalho vai para o Diário.
+- **Passo a passo:** primeiros passos, preparo do campo, fertilizantes e adubos, plantio, colheita, vendas, máquinas e animais.
+- **O que fazer se…:** pedras, ervas daninhas (antes de plantar, lavoura pequena, lavoura alta), calcário, aração, lavoura murcha, pisoteio, dívida, preço baixo, silo cheio, máquina quebrada, animais doentes, ajudante parado e arroz sem água.
+- **Dicas:** dica do dia, dicas para a sua fazenda calculadas a partir dos talhões e a lista completa.
+- **Tutorial do app:** o mesmo tutorial que aparece no primeiro acesso. Para vê-lo de novo ao abrir o app, use Ajustes > Ver tutorial de novo.
+
+Cada tópico pode ser marcado como aprendido; o progresso aparece no topo do Guia. A busca encontra qualquer palavra (por exemplo "chorume" ou "pedras").
+
+## Imagens e vídeos
+
+Registros do diário, itens da frota e animais aceitam uma imagem da galeria do celular ou de uma pasta do computador. Os registros do diário também aceitam um vídeo (um vídeo colhendo, plantando, arando…). Os modelos rápidos no topo do Diário e o botão + do celular ("Vídeo da colheita", "Vídeo do plantio") já abrem o formulário preenchido.
+
+- Android: a imagem e o vídeo são copiados para a pasta de documentos do app. Dá para escolher da galeria ou gravar na hora.
+- Windows e navegador: a imagem é reduzida para até 1280 px e o vídeo é guardado inteiro (até 400 MB) no IndexedDB.
 
 ## Avisos e notificações
 
-Os avisos são calculados a partir do estado da fazenda (`src/alerts.ts`): colheita pronta, melhor mês de venda, tarefas do mês e atrasadas, revisão de máquinas, ervas daninhas, saúde e lotação dos animais, último mês de plantio. Ficam na tela Avisos, com contador no sino.
+Os avisos são calculados a partir do estado da fazenda (`src/alerts.ts`): colheita pronta, melhor mês de venda, tarefas do mês e atrasadas, revisão de máquinas, ervas daninhas, pedras, saúde e lotação dos animais, último mês de plantio. Ficam na tela Avisos, com contador no sino.
 
 Com as notificações ligadas em Ajustes, cada aviso novo também vai para a barra de notificações do Android ou para a central do Windows. Como os avisos seguem o mês do jogo, eles surgem quando você avança o mês ou altera dados com o app aberto; não há envio com o app fechado.
 
@@ -93,6 +109,6 @@ No Expo Go as notificações do sistema são limitadas. Para testá-las no Andro
 
 ## Dados
 
-Tudo fica gravado no próprio dispositivo. Para levar de um aparelho para outro, use Ajustes > Copiar backup e, no outro, Restaurar backup. As imagens não entram no backup.
+Tudo fica gravado no próprio dispositivo. Para levar de um aparelho para outro, use Ajustes > Copiar backup e, no outro, Restaurar backup. As imagens e os vídeos não entram no backup.
 
 O catálogo de culturas segue o calendário padrão do FS25. Para mapas com outro calendário, edite janelas, produtividade e preços na tela Culturas.

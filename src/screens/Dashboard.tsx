@@ -1,10 +1,14 @@
-import { ArrowRight, Camera, ChevronRight, HandCoins, Sprout, Wheat } from 'lucide-react-native';
-import React from 'react';
+import { ArrowRight, Camera, ChevronRight, GraduationCap, HandCoins, Lightbulb, Shuffle, Sprout, Wheat } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { farmAlerts } from '../alerts';
 import { CountUp } from '../anim';
 import { AreaChart, FlowChart, Ring } from '../charts';
 import { emptyData } from '../data/demo';
+import { QUICK_TIPS } from '../data/guide';
+import { Appear, ProgressBar, Pressy, Pulse, Swap } from '../motion';
+import { contextTips, farmPrep } from '../prep';
+import { VideoTile } from '../video';
 import { activePlantings, plantingStatus, sellAdvice, yearFlow } from '../selectors';
 import { useStore } from '../store';
 import { c, font } from '../theme';
@@ -14,24 +18,66 @@ import { cropById, fieldById, Nav, plantingCells } from './common';
 
 const TONE = { yellow: c.harvest, blue: c.sell, green: c.primary, red: c.danger };
 
-function Tile({ label, children, note, onPress }: { label: string; children: React.ReactNode; note?: string; onPress: () => void }) {
+function Tile({ label, children, note, onPress, index = 0 }: { label: string; children: React.ReactNode; note?: string; onPress: () => void; index?: number }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [{ flexGrow: 1, flexBasis: 150, opacity: pressed ? 0.75 : 1 }]}>
-      <Card style={{ flex: 1 }} pad={14}>
-        <T v="label">{label}</T>
-        <View style={{ marginTop: 6 }}>{children}</View>
-        {note ? <T v="small" style={{ marginTop: 2 }}>{note}</T> : null}
-      </Card>
-    </Pressable>
+    <Appear index={index} style={{ flexGrow: 1, flexBasis: 150 }}>
+      <Pressy accessibilityRole="button" onPress={onPress} style={{ flex: 1 }}>
+        <Card style={{ flex: 1 }} pad={14}>
+          <T v="label">{label}</T>
+          <View style={{ marginTop: 6 }}>{children}</View>
+          {note ? <T v="small" style={{ marginTop: 2 }}>{note}</T> : null}
+        </Card>
+      </Pressy>
+    </Appear>
+  );
+}
+
+/** Dica do dia: contextual (do estado da fazenda) ou geral; troca com animação. */
+function TipCard({ go }: Pick<Nav, 'go'>) {
+  const { data, now } = useStore();
+  const ctx = useMemo(() => contextTips(data, now.month), [data, now.month]);
+  const prep = useMemo(() => farmPrep(data, now.month), [data, now.month]);
+  const pool = useMemo(() => [...ctx.map((t) => ({ text: t.text, field: t.field })), ...QUICK_TIPS.map((text) => ({ text, field: undefined as string | undefined }))], [ctx]);
+  const [at, setAt] = useState(0);
+  const tip = pool[at % pool.length];
+  const ready = prep.filter((p) => !p.next).length;
+  return (
+    <View style={{ backgroundColor: c.harvestSoft, borderRadius: 16, borderWidth: 1, borderColor: '#EBD796', padding: 14, gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Pulse><Lightbulb size={18} color={c.harvestInk} /></Pulse>
+        <Text style={{ fontFamily: font, color: c.harvestInk, fontWeight: '700', fontSize: 13, flex: 1 }}>{tip.field ? 'Dica para a sua fazenda' : 'Dica do jogo'}</Text>
+        <Pressy accessibilityRole="button" accessibilityLabel="Próxima dica" onPress={() => setAt((n) => n + 1)} hitSlop={6} style={{ padding: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.6)' }}>
+          <Shuffle size={15} color={c.harvestInk} />
+        </Pressy>
+      </View>
+      <Swap k={at}>
+        <Pressable accessibilityRole="button" onPress={() => go('guia', tip.field ? `talhao:${tip.field}` : 'dicas')}>
+          <Text style={{ fontFamily: font, color: c.ink, fontSize: 15, lineHeight: 21, fontWeight: '500' }}>{tip.text}</Text>
+        </Pressable>
+      </Swap>
+      {prep.length ? (
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <T v="small" style={{ color: c.harvestInk }}>Talhões com solo pronto</T>
+            <T v="small" style={{ color: c.harvestInk, fontWeight: '700' }}>{ready} de {prep.length}</T>
+          </View>
+          <ProgressBar pct={ready / prep.length} color={c.primary} track="rgba(255,255,255,0.7)" />
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+        <Btn small kind="ghost" label="Assistente de preparo" icon={<GraduationCap size={14} color={c.ink} />} onPress={() => go('guia', 'assistente')} />
+        <Btn small kind="ghost" label="O que fazer se…" onPress={() => go('guia', 'situacoes')} />
+      </View>
+    </View>
   );
 }
 
 function Quick({ label, icon, onPress }: { label: string; icon: React.ReactNode; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [{ flex: 1, alignItems: 'center', gap: 6, opacity: pressed ? 0.6 : 1 }]}>
+    <Pressy accessibilityRole="button" onPress={onPress} scaleTo={0.9} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
       <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
       <Text style={{ fontFamily: font, fontSize: 12.5, fontWeight: '600', color: c.ink }}>{label}</Text>
-    </Pressable>
+    </Pressy>
   );
 }
 
@@ -86,7 +132,7 @@ export default function Dashboard({ go }: Nav) {
           </View>
         </Pressable>
         <View style={{ flex: wide ? 4 : undefined, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          <Tile label="Área plantada" onPress={() => go('talhoes')} note={`de ${num(totalArea, 1)} ha`}>
+          <Tile index={0} label="Área plantada" onPress={() => go('talhoes')} note={`de ${num(totalArea, 1)} ha`}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Ring pct={totalArea ? plantedArea / totalArea : 0} size={46} stroke={6}>
                 <Text style={{ fontFamily: font, fontSize: 11, fontWeight: '700', color: c.ink }}>{totalArea ? Math.round((plantedArea / totalArea) * 100) : 0}%</Text>
@@ -94,24 +140,27 @@ export default function Dashboard({ go }: Nav) {
               <CountUp value={plantedArea} format={(n) => `${num(n, 1)} ha`} style={{ fontSize: 21 }} />
             </View>
           </Tile>
-          <Tile label="Estoque a preço de hoje" onPress={() => go('estoque')} note="produção no silo">
+          <Tile index={1} label="Estoque a preço de hoje" onPress={() => go('estoque')} note="produção no silo">
             <CountUp value={stockValue} format={(n) => money(n, st)} style={{ fontSize: 21 }} />
           </Tile>
-          <Tile label="Tarefas abertas" onPress={() => go('tarefas')} note={lateTasks ? `${lateTasks} ${lateTasks === 1 ? 'atrasada' : 'atrasadas'}` : 'nenhuma atrasada'}>
+          <Tile index={2} label="Tarefas abertas" onPress={() => go('tarefas')} note={lateTasks ? `${lateTasks} ${lateTasks === 1 ? 'atrasada' : 'atrasadas'}` : 'nenhuma atrasada'}>
             <CountUp value={openTasks.length} format={(n) => String(Math.round(n))} style={[{ fontSize: 21 }, lateTasks ? { color: c.danger } : null]} />
           </Tile>
-          <Tile label="Frota própria" onPress={() => go('frota')} note={`${data.machines.length} máquinas e implementos`}>
+          <Tile index={3} label="Frota própria" onPress={() => go('frota')} note={`${data.machines.length} máquinas e implementos`}>
             <CountUp value={fleetValue} format={(n) => money(n, st)} style={{ fontSize: 21 }} />
           </Tile>
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 8, maxWidth: 520, alignSelf: wide ? 'flex-start' : 'stretch', width: wide ? 520 : undefined }}>
+      <View style={{ flexDirection: 'row', gap: 8, maxWidth: 620, alignSelf: wide ? 'flex-start' : 'stretch', width: wide ? 620 : undefined }}>
         <Quick label="Plantar" icon={<Sprout size={22} color={c.primary} />} onPress={() => go('safras', 'novo')} />
         <Quick label="Colher" icon={<Wheat size={22} color={c.harvestInk} />} onPress={() => go('safras')} />
         <Quick label="Vender" icon={<HandCoins size={22} color={c.sell} />} onPress={() => go('vendas', 'novo')} />
         <Quick label="Registrar" icon={<Camera size={22} color={c.ink} />} onPress={() => go('diario', 'novo')} />
+        <Quick label="Guia" icon={<GraduationCap size={22} color={c.harvestInk} />} onPress={() => go('guia')} />
       </View>
+
+      <TipCard go={go} />
 
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 16, alignItems: 'flex-start' }}>
         <Section title="Lavouras em andamento" style={{ flex: 3, alignSelf: 'stretch' }} right={<Btn small kind="ghost" label="Ver safras" onPress={() => go('safras')} />}>
@@ -148,8 +197,9 @@ export default function Dashboard({ go }: Nav) {
 
         <Section title="Avisos" style={{ flex: 2, alignSelf: 'stretch' }} right={alerts.length ? <Btn small kind="ghost" label={`Ver os ${alerts.length}`} onPress={() => go('avisos')} /> : undefined}>
           {alerts.length === 0 ? <T v="small" style={{ paddingVertical: 12 }}>Tudo em dia. Nada pede atenção agora.</T> : null}
-          {alerts.slice(0, 5).map((a) => (
-            <Pressable key={a.id} accessibilityRole="button" onPress={() => go(a.route)} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: c.line }, pressed && { opacity: 0.6 }]}>
+          {alerts.slice(0, 5).map((a, i) => (
+            <Appear key={a.id} index={i}>
+            <Pressable accessibilityRole="button" onPress={() => go(a.route)} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: c.line }, pressed && { opacity: 0.6 }]}>
               <View style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, backgroundColor: TONE[a.tone] }} />
               <View style={{ flex: 1 }}>
                 <T style={{ fontWeight: '600' }}>{a.title}</T>
@@ -157,6 +207,7 @@ export default function Dashboard({ go }: Nav) {
               </View>
               <ChevronRight size={16} color={c.faint} />
             </Pressable>
+            </Appear>
           ))}
         </Section>
       </View>
@@ -166,7 +217,7 @@ export default function Dashboard({ go }: Nav) {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
             {recent.map((r) => (
               <Pressable key={r.id} accessibilityRole="button" onPress={() => go('diario')} style={{ width: 150 }}>
-                <Photo uri={r.photo} style={{ width: 150, height: 104, borderRadius: 10 }} fallback={<Camera size={22} color={c.primaryDark} />} />
+                {!r.photo && r.video ? <VideoTile style={{ width: 150, height: 104, borderRadius: 10 }} /> : <Photo uri={r.photo} style={{ width: 150, height: 104, borderRadius: 10 }} fallback={<Camera size={22} color={c.primaryDark} />} />}
                 <T style={{ fontWeight: '600', marginTop: 6, fontSize: 13.5 }} numberOfLines={1}>{r.title}</T>
                 <T v="small">{isoToBr(r.date)}</T>
               </Pressable>

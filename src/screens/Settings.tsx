@@ -76,8 +76,16 @@ export default function Settings() {
         </View>
       </Section>
 
+      <Section title="Tutorial e guia">
+        <T v="small" style={{ marginBottom: 10 }}>{data.guideRead.length} tópicos do guia marcados como aprendidos.</T>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Btn small label="Ver tutorial de novo" onPress={() => setSettings({ tutorialSeen: false })} />
+          {data.guideRead.length ? <Btn small kind="ghost" label="Zerar progresso do guia" onPress={() => confirm({ title: 'Zerar o progresso do guia?', message: 'Os tópicos voltam a aparecer como não aprendidos.', confirmLabel: 'Zerar', onConfirm: () => replaceAll({ ...data, guideRead: [] }) })} /> : null}
+        </View>
+      </Section>
+
       <Section title="Backup">
-        <T v="small">Os dados ficam guardados só neste dispositivo. Para levar do celular para o computador, copie o backup aqui e restaure lá. As imagens não entram no backup.</T>
+        <T v="small">Os dados ficam guardados só neste dispositivo. Para levar do celular para o computador, copie o backup aqui e restaure lá. As imagens e os vídeos não entram no backup.</T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
           <Btn small label="Copiar backup" icon={<Copy size={14} color="#fff" />} onPress={copyBackup} />
           <Btn small kind="ghost" label="Restaurar backup" icon={<Upload size={14} color={c.ink} />} onPress={() => setSheet('restore')} />
