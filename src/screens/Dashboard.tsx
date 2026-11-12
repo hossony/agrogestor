@@ -6,6 +6,7 @@ import { CountUp } from '../anim';
 import { AreaChart, FlowChart, Ring } from '../charts';
 import { emptyData } from '../data/demo';
 import { QUICK_TIPS } from '../data/guide';
+import { mapById } from '../data/maps';
 import { Appear, ProgressBar, Pressy, Pulse, Swap } from '../motion';
 import { contextTips, farmPrep } from '../prep';
 import { VideoTile } from '../video';
@@ -37,7 +38,15 @@ function TipCard({ go }: Pick<Nav, 'go'>) {
   const { data, now } = useStore();
   const ctx = useMemo(() => contextTips(data, now.month), [data, now.month]);
   const prep = useMemo(() => farmPrep(data, now.month), [data, now.month]);
-  const pool = useMemo(() => [...ctx.map((t) => ({ text: t.text, field: t.field })), ...QUICK_TIPS.map((text) => ({ text, field: undefined as string | undefined }))], [ctx]);
+  const gameMap = mapById(data.settings.map);
+  const pool = useMemo(
+    () => [
+      ...ctx.map((t) => ({ text: t.text, field: t.field, label: 'Dica para a sua fazenda' })),
+      ...(gameMap?.tips ?? []).map((text) => ({ text, field: undefined as string | undefined, label: `Dica de ${gameMap!.name}` })),
+      ...QUICK_TIPS.map((text) => ({ text, field: undefined as string | undefined, label: 'Dica do jogo' })),
+    ],
+    [ctx, gameMap],
+  );
   const [at, setAt] = useState(0);
   const tip = pool[at % pool.length];
   const ready = prep.filter((p) => !p.next).length;
@@ -45,13 +54,13 @@ function TipCard({ go }: Pick<Nav, 'go'>) {
     <View style={{ backgroundColor: c.harvestSoft, borderRadius: 16, borderWidth: 1, borderColor: '#EBD796', padding: 14, gap: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Pulse><Lightbulb size={18} color={c.harvestInk} /></Pulse>
-        <Text style={{ fontFamily: font, color: c.harvestInk, fontWeight: '700', fontSize: 13, flex: 1 }}>{tip.field ? 'Dica para a sua fazenda' : 'Dica do jogo'}</Text>
+        <Text style={{ fontFamily: font, color: c.harvestInk, fontWeight: '700', fontSize: 13, flex: 1 }}>{tip.label}</Text>
         <Pressy accessibilityRole="button" accessibilityLabel="Próxima dica" onPress={() => setAt((n) => n + 1)} hitSlop={6} style={{ padding: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.6)' }}>
           <Shuffle size={15} color={c.harvestInk} />
         </Pressy>
       </View>
       <Swap k={at}>
-        <Pressable accessibilityRole="button" onPress={() => go('guia', tip.field ? `talhao:${tip.field}` : 'dicas')}>
+        <Pressable accessibilityRole="button" onPress={() => go('guia', tip.field ? `talhao:${tip.field}` : tip.label.startsWith('Dica de ') ? 'mapas' : 'dicas')}>
           <Text style={{ fontFamily: font, color: c.ink, fontSize: 15, lineHeight: 21, fontWeight: '500' }}>{tip.text}</Text>
         </Pressable>
       </Swap>

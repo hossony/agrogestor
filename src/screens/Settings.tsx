@@ -9,6 +9,7 @@ import { c } from '../theme';
 import { Data } from '../types';
 import { Btn, FieldDef, FormSheet, Screen, Section, Segmented, T, useConfirm } from '../ui';
 import { MONTHS_FULL, num } from '../utils';
+import { MAPS, mapById } from '../data/maps';
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
@@ -74,6 +75,11 @@ export default function Settings() {
             }}
           />
         </View>
+      </Section>
+
+      <Section title="Mapa do jogo">
+        <T v="small" style={{ marginBottom: 10 }}>{mapById(st.map) ? `${mapById(st.map)!.name}, ${mapById(st.map)!.region}. As dicas do Painel e do Guia seguem este mapa.` : 'Escolha o mapa do seu jogo salvo para receber dicas específicas.'}</T>
+        <Segmented value={st.map ?? 'outro'} onChange={(v) => setSettings({ map: v })} options={[...MAPS.map((m) => ({ value: m.id, label: m.name })), { value: 'outro', label: 'Outro / mod' }]} />
       </Section>
 
       <Section title="Tutorial e guia">

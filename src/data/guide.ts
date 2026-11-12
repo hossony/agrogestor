@@ -625,13 +625,13 @@ export interface TutorialSlide {
 /** Tutorial do AgroGestor, mostrado no primeiro acesso e em Guia > Tutorial. */
 export const TUTORIAL: TutorialSlide[] = [
   { icon: 'app', title: 'Bem-vindo ao AgroGestor', text: 'Este app é o escritório da sua fazenda no Farming Simulator 25. Você joga no computador ou console e anota aqui o que acontece. Em troca, o app calcula colheitas, estoque, lucro e avisa o que fazer.' },
-  { icon: 'field', title: '1. Cadastre seus talhões', text: 'Em Talhões, crie cada campo com a área em hectares e o estado do solo: arado, calcário, adubações, ervas daninhas e pedras. Copie do mapa de solo do jogo.', route: 'talhoes', cta: 'Abrir Talhões' },
+  { icon: 'field', title: '1. Escolha o mapa e cadastre os talhões', text: 'Em Talhões > Talhões do mapa, escolha Riverbend Springs (EUA), Zielonka (Europa) ou Hutan Pantai (Ásia) e cadastre os campos com o mesmo número do jogo. Depois marque o estado do solo: arado, calcário, adubações, ervas daninhas e pedras.', route: 'talhoes', cta: 'Abrir Talhões' },
   { icon: 'seed', title: '2. Registre cada plantio', text: 'Em Safras, informe talhão e cultura. O app calcula o mês de colheita e a produção esperada pelo tamanho do campo.', route: 'safras', cta: 'Abrir Safras' },
   { icon: 'calendar', title: '3. Avance o mês junto com o jogo', text: 'Toda vez que o mês virar no jogo, toque em "Avançar" no Painel. Assim os avisos de colheita, venda e tarefas aparecem na hora certa.', route: 'painel', cta: 'Ir ao Painel' },
   { icon: 'diary', title: '4. Diário com fotos e vídeos', text: 'Registre cada trabalho com foto ou vídeo: um vídeo colhendo, um vídeo plantando, a primeira aração. Use os modelos prontos e filtre por tipo.', route: 'diario', cta: 'Abrir Diário' },
   { icon: 'money', title: '5. Venda no melhor mês', text: 'Ao colher, informe a quantidade. O Estoque soma tudo e a tela Vendas mostra quando o preço está perto do pico.', route: 'vendas', cta: 'Abrir Vendas' },
   { icon: 'bell', title: '6. Siga os avisos', text: 'O sino reúne o que pede atenção: colheita pronta, tarefa atrasada, ervas daninhas, pedras, revisão de máquina e animais.', route: 'avisos', cta: 'Ver Avisos' },
-  { icon: 'guide', title: '7. Guia e Assistente', text: 'No Guia você encontra o passo a passo do preparo do campo, os adubos certos e o que fazer em cada situação. O Assistente diz, talhão por talhão, a próxima etapa.', route: 'guia', cta: 'Abrir Guia' },
+  { icon: 'guide', title: '7. Guia e Assistente', text: 'No Guia você encontra o passo a passo do preparo do campo, os adubos certos e o que fazer em cada situação. O Assistente diz, talhão por talhão, a próxima etapa, e a aba Mapas traz pontos de venda, produções e dicas do seu mapa.', route: 'guia', cta: 'Abrir Guia' },
 ];
 
 /** Modelos rápidos do Diário: título, tipo e pedido de vídeo. */

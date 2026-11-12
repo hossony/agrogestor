@@ -128,27 +128,60 @@ const BURST = ['#E9A800', '#1E6B3E', '#7DBB5A', '#2B78B8', '#F0B429', '#BF3B2B']
 /**
  * Explosão de confete/folhas. Muda `trigger` (ex.: um contador) para disparar.
  * Fica por cima do conteúdo sem bloquear toques.
+ *
+ * Cada explosão é um componente próprio, com o seu valor animado: a animação só
+ * começa depois que as peças estão montadas (senão, no driver nativo, peças
+ * novas não se ligam à animação já em curso e ficam paradas na tela) e as peças
+ * são desmontadas ao terminar, com um prazo de segurança caso a animação seja
+ * interrompida (app em segundo plano, aba escondida, toques seguidos).
  */
 export function Celebrate({ trigger, size = 140 }: { trigger: number; size?: number }) {
-  const v = useRef(new Animated.Value(0)).current;
-  const [seed, setSeed] = useState(0);
+  const [bursts, setBursts] = useState<number[]>([]);
   useEffect(() => {
     if (!trigger || reduce) return;
-    setSeed(trigger);
-    v.setValue(0);
-    Animated.timing(v, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: native }).start();
-  }, [trigger, v]);
-  if (!seed) return null;
+    setBursts((list) => [...list.slice(-2), trigger]);
+  }, [trigger]);
+  if (!bursts.length) return null;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
+      {bursts.map((id) => (
+        <Burst key={id} seed={id} size={size} onDone={() => setBursts((list) => list.filter((x) => x !== id))} />
+      ))}
+    </View>
+  );
+}
+
+const BURST_MS = 900;
+
+function Burst({ seed, size, onDone }: { seed: number; size: number; onDone: () => void }) {
+  const v = useRef(new Animated.Value(0)).current;
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      done.current();
+    };
+    const anim = Animated.timing(v, { toValue: 1, duration: BURST_MS, easing: Easing.out(Easing.quad), useNativeDriver: native });
+    anim.start(finish);
+    const safety = setTimeout(finish, BURST_MS + 600);
+    return () => {
+      clearTimeout(safety);
+      anim.stop();
+    };
+  }, [v]);
   const parts = Array.from({ length: 14 }, (_, i) => {
     const ang = (i / 14) * Math.PI * 2 + (seed % 7) * 0.3;
     const dist = size * (0.35 + ((i * 37 + seed) % 10) / 22);
     return { dx: Math.cos(ang) * dist, dy: Math.sin(ang) * dist - size * 0.15, color: BURST[i % BURST.length], round: i % 3 === 0 };
   });
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
+    <>
       {parts.map((p, i) => (
         <Animated.View
-          key={`${seed}-${i}`}
+          key={i}
           style={{
             position: 'absolute',
             width: p.round ? 9 : 7,
@@ -165,7 +198,7 @@ export function Celebrate({ trigger, size = 140 }: { trigger: number; size?: num
           }}
         />
       ))}
-    </View>
+    </>
   );
 }
 

@@ -13,6 +13,8 @@ export interface Settings {
   systemNotifications: boolean;
   /** Já viu o tutorial de boas-vindas. */
   tutorialSeen?: boolean;
+  /** Mapa do jogo salvo: riverbend, zielonka, hutan ou outro. */
+  map?: string;
 }
 
 export interface Field {
@@ -26,6 +28,12 @@ export interface Field {
   weeds: boolean;
   /** Pedras no campo (aparecem depois de arar ou cultivar). */
   stones?: boolean;
+  /** Número do campo/lote no mapa do jogo. */
+  mapNo?: number;
+  /** Arrozal (campo que pode ser alagado). */
+  rice?: boolean;
+  /** Arrozal já alagado para o plantio. */
+  flooded?: boolean;
   notes?: string;
 }
 

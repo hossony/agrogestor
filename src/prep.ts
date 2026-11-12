@@ -6,7 +6,7 @@ import { Crop, Data, Field } from './types';
  * certa e o que muda no talhão quando a etapa é concluída.
  */
 
-export type PrepKey = 'pedras' | 'calcario' | 'arar' | 'adubo1' | 'adubo2' | 'ervas';
+export type PrepKey = 'pedras' | 'calcario' | 'arar' | 'alagar' | 'adubo1' | 'adubo2' | 'ervas';
 
 export interface PrepStep {
   key: PrepKey;
@@ -25,7 +25,7 @@ export interface PrepStep {
 
 export function prepSteps(f: Field, planted: boolean): PrepStep[] {
   const fert = f.fertLevel ?? 0;
-  return [
+  const steps: PrepStep[] = [
     {
       key: 'pedras',
       title: 'Recolher pedras',
@@ -93,6 +93,21 @@ export function prepSteps(f: Field, planted: boolean): PrepStep[] {
       guide: planted ? 'ervas-pequena' : 'ervas-antes',
     },
   ];
+  if (f.rice) {
+    // Arrozal: precisa estar alagado antes do plantio.
+    steps.splice(3, 0, {
+      key: 'alagar',
+      title: 'Alagar o arrozal',
+      why: 'O arroz só pode ser plantado com o campo alagado.',
+      how: planted ? 'Mantenha o nível da água durante o crescimento.' : 'Encha o campo pela bomba de alagamento antes de entrar com a plantadeira de mudas.',
+      tool: 'Bomba de alagamento',
+      workType: 'Outros',
+      done: !!f.flooded || planted,
+      patch: { flooded: true },
+      guide: 'arroz-agua',
+    });
+  }
+  return steps;
 }
 
 export interface FieldPrep {
