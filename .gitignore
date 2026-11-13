@@ -44,3 +44,6 @@ yarn-error.*
 desktop/web/
 desktop/release/
 tests/e2e-mobile.png
+
+# Exportação do app de gestão para o site
+dist-gestao/

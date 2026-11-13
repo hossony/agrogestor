@@ -18,6 +18,10 @@ As contas são travas locais: ficam só no aparelho, com a senha guardada como h
 
 Feito em React Native (Expo SDK 58) com um único código para Android e Windows.
 
+## Versão web com comunidade
+
+A pasta `web/` tem o site (Next.js) para publicar na Vercel: feed com imagens e vídeos, curtidas e foguinho 🔥, amigos pelo ID com a fazenda deles (patrimônio, campos, máquinas e animais), perfil com foto e banner, e convites para jogar com notificação no celular. O app de gestão vai junto, em `/gestao`. Veja `web/README.md` para publicar com banco e armazenamento gratuitos.
+
 ## Rodar em desenvolvimento
 
 ```bash
@@ -86,6 +90,8 @@ src/data/crops.ts     catálogo de culturas do FS25
 src/data/demo.ts      fazenda de exemplo
 src/screens/          uma tela por arquivo
 desktop/              janela Electron para Windows
+app.config.js         lê o app.json; com EXPO_BASE_URL exporta a versão web para um subcaminho (/gestao no site)
+web/                  site com a comunidade (Next.js, Vercel)
 ```
 
 ## Como os números são calculados
