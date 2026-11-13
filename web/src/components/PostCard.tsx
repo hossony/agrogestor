@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { api, timeAgo } from '@/lib/client';
 import { categoryOf, Media, Post } from '@/lib/types';
+import { Badges } from './Badges';
 import { Avatar, Count, EASE, Lightbox, SPRING } from './ui';
 
 function Burst({ emoji }: { emoji: string }) {
@@ -118,6 +119,7 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
             <Link href={`/u/${p.author.code}`} className="bold ellipsis">
               {p.author.name}
             </Link>
+            <Badges ids={p.author.badges} max={3} />
             {hot && (
               <motion.span className="hot-badge" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING}>
                 🔥 Em alta

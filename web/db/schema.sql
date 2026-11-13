@@ -100,3 +100,22 @@ create table if not exists expo_push_tokens (
   created_at timestamptz not null default now()
 );
 create index if not exists expo_push_user on expo_push_tokens (user_id);
+
+-- Perfil: privacidade da fazenda, selos, links sociais e seguidores.
+alter table users add column if not exists privacy text not null default 'friends';
+alter table users add column if not exists badges text[] not null default '{}';
+alter table users add column if not exists links jsonb not null default '{}';
+alter table users add column if not exists follower_count int not null default 0;
+
+create table if not exists follows (
+  follower_id uuid not null references users(id) on delete cascade,
+  followed_id uuid not null references users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, followed_id),
+  check (follower_id <> followed_id)
+);
+create index if not exists follows_followed on follows (followed_id);
+
+-- Selo verde: os 100 primeiros fazendeiros da plataforma (idempotente).
+update users set badges = array_append(badges, 'pioneer')
+  where id in (select id from users order by created_at asc limit 100) and not ('pioneer' = any(badges));

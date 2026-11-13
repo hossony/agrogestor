@@ -1,18 +1,20 @@
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, BellRing, Check, CheckCheck, Copy, Gamepad2, ImagePlus, LogOut, Pencil, RefreshCw, Send, UserPlus, Video, X } from 'lucide-react-native';
+import { ArrowLeft, Award, Bell, BellRing, Check, CheckCheck, ClipboardList, Copy, Flame, Gamepad2, ImagePlus, Lock, LogOut, Pencil, RefreshCw, Send, Sparkles, UserPlus, UserRound, Users, Video, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, FlatList, Image, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
-import { mediaUrl, request, uploadMedia } from '../community/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, Animated, BackHandler, FlatList, Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { mediaUrl, request, shrinkImage, uploadMedia } from '../community/api';
+import { BADGES, canHaveLinks, LINK_SITES, PRIVACY, type Privacy } from '../community/badges';
 import type { FarmSnapshot } from '../community/farm';
 import { Target, useCommunity } from '../community/store';
-import { CATEGORIES, Comment, Friend, Invite, Media, Notif, Post, Relation, timeAgo, UserLite } from '../community/types';
-import { Avatar, Chip, FarmView, Input, InviteSheet, PostCard, Sheet, Tabs } from '../community/ui';
+import { CATEGORIES, Changelog, Comment, Friend, Invite, Media, Notif, Post, Relation, timeAgo, UserLite } from '../community/types';
+import { Avatar, Badges, Chip, FarmView, Input, InviteSheet, PostCard, Sheet, Tabs } from '../community/ui';
 import { Appear, Pressy } from '../motion';
 import { useStore } from '../store';
 import { c, font, radius } from '../theme';
 import { Badge, Btn, Card, Empty, T, useWide } from '../ui';
-import { Nav } from './common';
 
 /**
  * Comunidade dentro do app: o mesmo feed, amigos, convites e perfis do site
@@ -151,9 +153,8 @@ function Composer({ visible, onClose, onPosted }: { visible: boolean; onClose: (
       const key = Math.random().toString(36).slice(2);
       const type: Media['type'] = a.type === 'video' ? 'video' : 'image';
       setItems((l) => [...l, { key, uri: a.uri, type, progress: 3 }]);
-      uploadMedia(conn, { uri: a.uri, type, mimeType: a.mimeType, fileName: a.fileName, file: (a as { file?: File }).file, width: a.width, height: a.height }, (pct) =>
-        setItems((l) => l.map((i) => (i.key === key ? { ...i, progress: Math.max(i.progress, pct) } : i))),
-      )
+      (type === 'image' ? shrinkImage({ uri: a.uri, width: a.width, height: a.height, file: (a as { file?: File }).file, mimeType: a.mimeType }) : Promise.resolve({ uri: a.uri, width: a.width, height: a.height, file: (a as { file?: File }).file, mimeType: a.mimeType ?? undefined }))
+        .then((img) => uploadMedia(conn, { uri: img.uri, type, mimeType: img.mimeType, fileName: a.fileName, file: img.file, width: img.width, height: img.height }, (pct) => setItems((l) => l.map((i) => (i.key === key ? { ...i, progress: Math.max(i.progress, pct) } : i)))))
         .then((media) => setItems((l) => l.map((i) => (i.key === key ? { ...i, media, progress: 100 } : i))))
         .catch((e: Error) => {
           setItems((l) => l.filter((i) => i.key !== key));
@@ -313,7 +314,7 @@ function FeedTab({ go }: { go: (v: View_) => void }) {
       <FlatList
         data={posts}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 110, maxWidth: 760, width: '100%', alignSelf: 'center' }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 32, maxWidth: 760, width: '100%', alignSelf: 'center' }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListHeaderComponent={header}
         renderItem={({ item, index }) => <PostCard post={item} index={index % 12} onOpenPost={(p) => go({ kind: 'post', id: p.id })} onOpenUser={(code) => go({ kind: 'user', code })} onDeleted={() => setPosts((l) => l.filter((x) => x.id !== item.id))} />}
@@ -371,7 +372,10 @@ function PostScreen({ id, go }: { id: string; go: (v: View_) => void }) {
       </Pressable>
       <View style={{ flex: 1 }}>
         <View style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, borderTopLeftRadius: 4, paddingVertical: 8, paddingHorizontal: 12 }}>
-          <T style={{ fontWeight: '700', fontSize: 13 }}>{cm.author.name}</T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <T style={{ fontWeight: '700', fontSize: 13 }}>{cm.author.name}</T>
+            <Badges ids={cm.author.badges} max={2} />
+          </View>
           <T>{cm.body}</T>
         </View>
         <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 12, paddingTop: 4 }}>
@@ -414,7 +418,7 @@ function PostScreen({ id, go }: { id: string; go: (v: View_) => void }) {
           ))}
         </Card>
       </ScrollView>
-      <View style={{ borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.surface, padding: 10, paddingBottom: 90, gap: 6 }}>
+      <View style={{ borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.surface, padding: 10, paddingBottom: 10, gap: 6 }}>
         {replyTo ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <T v="small" style={{ flex: 1 }}>
@@ -487,7 +491,7 @@ function FriendsTab({ go, invite }: { go: (v: View_) => void; invite: (u: UserLi
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110, gap: 14, maxWidth: 760, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 14, maxWidth: 760, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
       <Appear>
         <Card style={{ gap: 10, backgroundColor: c.primarySoft }}>
           <T v="label">SEU ID</T>
@@ -628,7 +632,7 @@ function InvitesTab({ go, invite }: { go: (v: View_) => void; invite: (u: UserLi
   const expired = (i: Invite) => i.status === 'pending' && Date.now() - new Date(i.created_at).getTime() > 3 * 3600 * 1000;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110, gap: 14, maxWidth: 760, width: '100%', alignSelf: 'center' }} refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 14, maxWidth: 760, width: '100%', alignSelf: 'center' }} refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
       <PushCard />
       <Card style={{ gap: 10 }}>
         <T v="h2">Chamar um amigo</T>
@@ -704,7 +708,7 @@ function InvitesTab({ go, invite }: { go: (v: View_) => void; invite: (u: UserLi
 
 /* ================= Avisos ================= */
 
-const NOTIF_ICON: Record<string, string> = { like: '❤️', fire: '🔥', comment: '💬', reply: '💬', friend_request: '🤝', friend_accept: '🤝', invite: '🎮', invite_accept: '🎮', invite_decline: '🎮' };
+const NOTIF_ICON: Record<string, string> = { like: '❤️', fire: '🔥', comment: '💬', reply: '💬', friend_request: '🤝', friend_accept: '🤝', invite: '🎮', invite_accept: '🎮', invite_decline: '🎮', follow: '👣', badge: '🎖️' };
 
 function NotifsTab({ go, openTab }: { go: (v: View_) => void; openTab: (t: Tab) => void }) {
   const { conn, version, refresh } = useCommunity();
@@ -718,10 +722,11 @@ function NotifsTab({ go, openTab }: { go: (v: View_) => void; openTab: (t: Tab) 
     if (n.post_id) go({ kind: 'post', id: n.post_id });
     else if (n.type.startsWith('invite')) openTab('jogar');
     else if (n.type === 'friend_request') openTab('amigos');
+    else if (n.type === 'badge') openTab('perfil');
     else if (n.actor) go({ kind: 'user', code: n.actor.code });
   };
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110, gap: 12, maxWidth: 760, width: '100%', alignSelf: 'center' }} refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12, maxWidth: 760, width: '100%', alignSelf: 'center' }} refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
       <PushCard />
       <View style={{ alignItems: 'flex-end' }}>
         <Btn
@@ -766,12 +771,102 @@ function NotifsTab({ go, openTab }: { go: (v: View_) => void; openTab: (t: Tab) 
 /* ================= Perfil ================= */
 
 interface Profile {
-  user: UserLite & { bio: string; banner_url: string | null };
+  user: UserLite & { bio: string; banner_url: string | null; links: Record<string, string>; privacy: string };
   relation: Relation;
-  stats: { posts: number; friends: number; fires: number };
+  stats: { posts: number; friends: number; fires: number; followers: number };
+  following: boolean;
   hasFarm: boolean;
   farm: FarmSnapshot | null;
   farmUpdatedAt: string | null;
+  farmHidden: 'private' | 'friends' | null;
+}
+
+/** Janela do dono para conceder selos. */
+function BadgeAdmin({ user, visible, onClose, onSaved }: { user: UserLite; visible: boolean; onClose: () => void; onSaved: () => void }) {
+  const { conn } = useCommunity();
+  const [sel, setSel] = useState<string[]>(user.badges);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setSel(user.badges), [user.badges, visible]);
+  const save = async () => {
+    if (!conn) return;
+    setBusy(true);
+    try {
+      await request(conn, `/api/users/${user.code}/badges`, { method: 'PATCH', body: { badges: sel } });
+      onSaved();
+      onClose();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+    setBusy(false);
+  };
+  return (
+    <Sheet visible={visible} onClose={onClose}>
+      <T v="h2" style={{ fontSize: 18 }}>
+        Selos de {user.name}
+      </T>
+      <T v="small">Só você (dono) vê esta janela. O selo de dono não pode ser dado a outras pessoas.</T>
+      {BADGES.filter((b) => b.id !== 'owner').map((b) => {
+        const on = sel.includes(b.id);
+        return (
+          <Pressable key={b.id} onPress={() => setSel((x) => (on ? x.filter((y) => y !== b.id) : [...x, b.id]))} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: on ? c.primary : c.line, backgroundColor: on ? c.primarySoft : c.surface }}>
+            <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: on ? c.primary : c.line, backgroundColor: on ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Check size={14} color="#fff" /> : null}</View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Badges ids={[b.id]} size="md" />
+              <T v="small">{b.desc}</T>
+            </View>
+          </Pressable>
+        );
+      })}
+      <Btn label={busy ? 'Salvando…' : 'Salvar selos'} icon={<Award size={15} color="#fff" />} onPress={save} disabled={busy} />
+    </Sheet>
+  );
+}
+
+/* ================= Novidades ================= */
+
+export const NEWS_SEEN = 'agrogestor:novidades-vistas';
+const WHERE: Record<string, { label: string; tone: 'blue' | 'yellow' | 'green' }> = { site: { label: 'Site', tone: 'blue' }, app: { label: 'App', tone: 'yellow' }, ambos: { label: 'Site e app', tone: 'green' } };
+
+function NewsScreen() {
+  const { data, error } = useApi<Changelog>('/api/changelog');
+  useEffect(() => {
+    if (data?.latest) AsyncStorage.setItem(NEWS_SEEN, data.latest).catch(() => {});
+  }, [data]);
+  if (error) return <Empty title="Não foi possível carregar" hint={error} />;
+  if (!data) return <Spinner />;
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 14, maxWidth: 760, width: '100%', alignSelf: 'center' }}>
+      <View>
+        <T v="title" style={{ fontSize: 24 }}>
+          Notas de atualização
+        </T>
+        <T v="small">Tudo o que mudou no site e no app, versão por versão.</T>
+      </View>
+      {data.entries.map((e, i) => (
+        <Appear key={e.version} index={i}>
+          <Card style={{ gap: 10, borderLeftWidth: 4, borderLeftColor: i === 0 ? c.harvest : c.primarySoft }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <T v="h2" style={{ fontSize: 17, flexShrink: 1 }}>
+                {e.title}
+              </T>
+              {i === 0 ? <Badge label="✨ Mais recente" tone="yellow" /> : null}
+            </View>
+            <T v="small">
+              Versão {e.version} · {new Date(e.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+            </T>
+            {e.items.map((it, j) => (
+              <View key={j} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                <View style={{ marginTop: 2 }}>
+                  <Badge label={WHERE[it.where]?.label ?? it.where} tone={WHERE[it.where]?.tone ?? 'neutral'} />
+                </View>
+                <T style={{ flex: 1, fontSize: 14 }}>{it.text}</T>
+              </View>
+            ))}
+          </Card>
+        </Appear>
+      ))}
+    </ScrollView>
+  );
 }
 
 function SyncCard() {
@@ -797,11 +892,11 @@ function SyncCard() {
 
 function EditProfile({ visible, onClose, onSaved }: { visible: boolean; onClose: () => void; onSaved: () => void }) {
   const { conn, me, setMe } = useCommunity();
-  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null });
+  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null, privacy: 'friends' as Privacy, links: {} as Record<string, string> });
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    if (me && visible) setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url });
+    if (me && visible) setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url, privacy: me.privacy ?? 'friends', links: me.links ?? {} });
   }, [me, visible]);
   if (!conn) return null;
 
@@ -812,7 +907,8 @@ function EditProfile({ visible, onClose, onSaved }: { visible: boolean; onClose:
     setBusy(kind);
     setError('');
     try {
-      const m = await uploadMedia(conn, { uri: a.uri, type: 'image', mimeType: a.mimeType, fileName: a.fileName, file: (a as { file?: File }).file, width: a.width, height: a.height });
+      const img = await shrinkImage({ uri: a.uri, width: a.width, height: a.height, file: (a as { file?: File }).file, mimeType: a.mimeType });
+      const m = await uploadMedia(conn, { uri: img.uri, type: 'image', mimeType: img.mimeType, fileName: a.fileName, file: img.file, width: img.width, height: img.height });
       setForm((f) => ({ ...f, [kind]: m.url }));
     } catch (e) {
       setError((e as Error).message);
@@ -854,6 +950,30 @@ function EditProfile({ visible, onClose, onSaved }: { visible: boolean; onClose:
       </View>
       <Input label="Nome" value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} maxLength={40} />
       <Input label="Bio" value={form.bio} onChangeText={(v) => setForm((f) => ({ ...f, bio: v }))} maxLength={280} multiline style={{ minHeight: 80, textAlignVertical: 'top' }} placeholder="Ex.: Produtor de soja em Riverbend, jogo todo sábado." />
+      <View style={{ gap: 8 }}>
+        <T v="label">PRIVACIDADE DA FAZENDA</T>
+        {PRIVACY.map((p) => {
+          const on = form.privacy === p.id;
+          return (
+            <Pressable key={p.id} accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={() => setForm((f) => ({ ...f, privacy: p.id }))} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: on ? c.primary : c.line, backgroundColor: on ? c.primarySoft : c.surface }}>
+              <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: on ? c.primary : c.line, alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>{on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.primary }} /> : null}</View>
+              <View style={{ flex: 1 }}>
+                <T style={{ fontWeight: '700' }}>{p.label}</T>
+                <T v="small">{p.desc}</T>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      {canHaveLinks(me?.badges) ? (
+        <View style={{ gap: 8 }}>
+          <T v="label">LINKS SOCIAIS</T>
+          <T v="small">Aparecem no seu perfil. Pode colar o link completo ou só o @ do canal.</T>
+          {LINK_SITES.map((sx) => (
+            <Input key={sx.id} label={`${sx.emoji} ${sx.label}`} value={form.links[sx.id] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, links: { ...f.links, [sx.id]: v } }))} placeholder={sx.prefix + (sx.id === 'site' ? 'seusite.com' : 'seucanal')} autoCapitalize="none" autoCorrect={false} maxLength={200} />
+          ))}
+        </View>
+      ) : null}
       <ErrorText text={error} />
       <Btn label={busy === 'save' ? 'Salvando…' : 'Salvar perfil'} onPress={save} disabled={busy !== null} />
     </Sheet>
@@ -861,11 +981,26 @@ function EditProfile({ visible, onClose, onSaved }: { visible: boolean; onClose:
 }
 
 function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_) => void; invite: (u: UserLite) => void; own?: boolean }) {
-  const { conn, logout, version } = useCommunity();
-  const { data, reload, error } = useApi<Profile>(`/api/users/${encodeURIComponent(code)}`, [version]);
+  const { conn, me, logout, version } = useCommunity();
+  const { data, setData, reload, error } = useApi<Profile>(`/api/users/${encodeURIComponent(code)}`, [version]);
   const [tab, setTab] = useState<'fazenda' | 'posts'>('fazenda');
   const posts = useApi<{ posts: Post[] }>(tab === 'posts' ? `/api/posts?sort=new&author=${encodeURIComponent(code)}` : null, [version]);
   const [edit, setEdit] = useState(false);
+  const [admin, setAdmin] = useState(false);
+  const [news, setNews] = useState(false);
+  const isOwner = Boolean(me?.badges?.includes('owner'));
+  const follow = async () => {
+    if (!conn || !data) return;
+    const next = !data.following;
+    setData({ ...data, following: next, stats: { ...data.stats, followers: Math.max(0, data.stats.followers + (next ? 1 : -1)) } });
+    try {
+      const r = await request<{ following: boolean; followers: number }>(conn, `/api/users/${data.user.code}/follow`, { method: 'POST' });
+      setData((d) => (d ? { ...d, following: r.following, stats: { ...d.stats, followers: r.followers } } : d));
+    } catch (e) {
+      reload();
+      alert((e as Error).message);
+    }
+  };
   const wide = useWide();
   const zoom = useRef(new Animated.Value(1.08)).current;
   useEffect(() => {
@@ -876,6 +1011,8 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
   if (!data || !conn) return <Spinner />;
   const { user, relation, stats } = data;
   const banner = mediaUrl(conn, user.banner_url);
+  const links = LINK_SITES.filter((sx) => user.links?.[sx.id]);
+  const first = user.name.split(' ')[0];
 
   const friendAction = async (action: 'add' | 'accept' | 'remove') => {
     try {
@@ -889,7 +1026,7 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: wide ? 24 : 16, paddingBottom: 110, gap: 14, maxWidth: 860, width: '100%', alignSelf: 'center' }} refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
+    <ScrollView contentContainerStyle={{ padding: wide ? 24 : 16, paddingBottom: 32, gap: 14, maxWidth: 860, width: '100%', alignSelf: 'center' }} refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
       <Appear>
         <Card pad={0} style={{ overflow: 'hidden' }}>
           <View style={{ height: wide ? 190 : 130, backgroundColor: c.primary, overflow: 'hidden' }}>
@@ -902,6 +1039,13 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
               </View>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', paddingTop: 8 }}>
                 {relation === 'self' ? <Btn small kind="ghost" label="Editar perfil" icon={<Pencil size={14} color={c.ink} />} onPress={() => setEdit(true)} /> : null}
+                {relation !== 'self' ? (
+                  <Pressy accessibilityRole="button" accessibilityState={{ selected: data.following }} onPress={follow} style={{ flexDirection: 'row', gap: 6, alignItems: 'center', backgroundColor: data.following ? c.surface : c.primarySoft, borderWidth: 1, borderColor: data.following ? c.line : c.primarySoft, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    {data.following ? <Check size={15} color={c.ink} /> : <UserPlus size={15} color={c.primaryDark} />}
+                    <Text style={{ fontFamily: font, fontWeight: '700', color: data.following ? c.ink : c.primaryDark }}>{data.following ? 'Seguindo' : 'Seguir'}</Text>
+                  </Pressy>
+                ) : null}
+                {isOwner && relation !== 'self' ? <Btn small kind="ghost" label="Selos" icon={<Award size={14} color={c.ink} />} onPress={() => setAdmin(true)} /> : null}
                 {relation === 'friend' ? (
                   <>
                     <Pressy accessibilityRole="button" onPress={() => invite(user)} style={{ flexDirection: 'row', gap: 6, alignItems: 'center', backgroundColor: c.harvest, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
@@ -919,12 +1063,24 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
             <T v="title" style={{ marginTop: 8, fontSize: 24 }}>
               {user.name}
             </T>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+            {user.badges?.length ? <View style={{ marginTop: 6 }}><Badges ids={user.badges} size="md" /></View> : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               <T v="small">@{user.username}</T>
               <CopyCode code={user.code} />
+              {user.privacy === 'private' ? <Badge label="🔒 privado" /> : null}
             </View>
             {user.bio ? <T style={{ marginTop: 10 }}>{user.bio}</T> : null}
-            <View style={{ flexDirection: 'row', gap: 20, marginTop: 12 }}>
+            {links.length ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                {links.map((sx) => (
+                  <Chip key={sx.id} label={`${sx.emoji} ${sx.label}`} onPress={() => Linking.openURL(user.links[sx.id]).catch(() => {})} />
+                ))}
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 18, marginTop: 12, flexWrap: 'wrap' }}>
+              <T>
+                <Text style={{ fontWeight: '800' }}>{stats.followers}</Text> <T v="small">seguidores</T>
+              </T>
               <T>
                 <Text style={{ fontWeight: '800' }}>{stats.posts}</Text> <T v="small">postagens</T>
               </T>
@@ -951,12 +1107,22 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
       />
       {tab === 'fazenda' ? (
         data.farm ? (
-          <FarmView farm={data.farm} updatedAt={data.farmUpdatedAt} />
+          <View style={{ gap: 10 }}>
+            {relation === 'self' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Lock size={13} color={c.muted} />
+                <T v="small">
+                  Visibilidade: <Text style={{ fontWeight: '700' }}>{PRIVACY.find((p) => p.id === user.privacy)?.label}</Text> (mude em Editar perfil)
+                </T>
+              </View>
+            ) : null}
+            <FarmView farm={data.farm} updatedAt={data.farmUpdatedAt} />
+          </View>
         ) : (
           <Card>
             <Empty
-              title={relation === 'self' ? 'Sua fazenda ainda não está no perfil' : data.hasFarm ? 'Fazenda visível só para amigos' : `${user.name.split(' ')[0]} ainda não publicou a fazenda`}
-              hint={relation === 'self' ? 'Ligue “Sincronizar” aqui em cima para mostrar este save aos seus amigos.' : data.hasFarm ? 'Adicione como amigo para ver plantações, máquinas e animais.' : 'Quando publicar, aparece aqui.'}
+              title={relation === 'self' ? 'Sua fazenda ainda não está no perfil' : data.farmHidden === 'private' ? 'Fazenda privada' : data.hasFarm ? 'Fazenda visível só para amigos' : `${first} ainda não publicou a fazenda`}
+              hint={relation === 'self' ? 'Ligue “Sincronizar” aqui em cima para mostrar este save aos seus amigos.' : data.farmHidden === 'private' ? `${first} escolheu não mostrar a fazenda e o patrimônio.` : data.hasFarm ? 'Adicione como amigo para ver plantações, máquinas e animais.' : 'Quando publicar, aparece aqui.'}
             />
           </Card>
         )
@@ -969,25 +1135,78 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
       )}
 
       {own ? <PushCard /> : null}
-      {own ? <Btn kind="ghost" label="Sair da comunidade neste aparelho" icon={<LogOut size={15} color={c.ink} />} onPress={logout} /> : null}
+      {own ? <Btn kind="ghost" label="Notas de atualização" icon={<Sparkles size={15} color={c.ink} />} onPress={() => setNews(true)} /> : null}
+      {own ? <Btn kind="ghost" label="Sair do AgroSocial neste aparelho" icon={<LogOut size={15} color={c.ink} />} onPress={logout} /> : null}
       <EditProfile visible={edit} onClose={() => setEdit(false)} onSaved={reload} />
+      {isOwner ? <BadgeAdmin user={user} visible={admin} onClose={() => setAdmin(false)} onSaved={reload} /> : null}
+      <Sheet visible={news} onClose={() => setNews(false)}>
+        <NewsScreen />
+      </Sheet>
     </ScrollView>
   );
 }
 
 /* ================= Tela ================= */
 
-export default function Community(_: Nav) {
+const SOCIAL_TABS: { value: Tab; label: string; Icon: React.ComponentType<{ size?: number; color?: string }> }[] = [
+  { value: 'feed', label: 'Feed', Icon: Flame },
+  { value: 'amigos', label: 'Amigos', Icon: Users },
+  { value: 'jogar', label: 'Jogar', Icon: Gamepad2 },
+  { value: 'avisos', label: 'Avisos', Icon: Bell },
+  { value: 'perfil', label: 'Perfil', Icon: UserRound },
+];
+
+function Dot({ n }: { n: number }) {
+  if (!n) return null;
+  return (
+    <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: '#FF5A1F', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
+      <Text style={{ fontFamily: font, color: '#fff', fontSize: 10, fontWeight: '800' }}>{n > 99 ? '99+' : n}</Text>
+    </View>
+  );
+}
+
+/** Aba da barra inferior do AgroSocial: o ícone sobe e a pílula aparece com mola. */
+function SocialTab({ label, Icon, on, badge, onPress }: { label: string; Icon: React.ComponentType<{ size?: number; color?: string }>; on: boolean; badge: number; onPress: () => void }) {
+  const v = useRef(new Animated.Value(on ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(v, { toValue: on ? 1 : 0, useNativeDriver: nativeDriver, speed: 16, bounciness: 9 }).start();
+  }, [on, v]);
+  return (
+    <Pressy accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={onPress} scaleTo={0.9} style={{ flex: 1, alignItems: 'center', paddingTop: 7, paddingBottom: 5 }}>
+      <Animated.View style={{ position: 'absolute', top: 4, width: 54, height: 30, borderRadius: 15, backgroundColor: c.primarySoft, opacity: v, transform: [{ scaleX: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }] }} />
+      <Animated.View style={{ height: 24, justifyContent: 'center', transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -1] }) }, { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) }] }}>
+        <Icon size={21} color={on ? c.primary : c.muted} />
+        {badge ? (
+          <View style={{ position: 'absolute', top: -6, right: -14 }}>
+            <Dot n={badge} />
+          </View>
+        ) : null}
+      </Animated.View>
+      <Text style={{ fontFamily: font, fontSize: 11, fontWeight: on ? '800' : '600', color: on ? c.primary : c.muted, marginTop: 4 }}>{label}</Text>
+    </Pressy>
+  );
+}
+
+/**
+ * AgroSocial: a rede social dentro do app, com cabeçalho e barra de abas
+ * próprios e um botão para voltar para a Gestão da fazenda.
+ */
+export default function SocialShell({ onGestao }: { onGestao: () => void }) {
   const { ready, conn, me, friend_requests, invites, unread, target, open } = useCommunity();
+  const insets = useSafeAreaInsets();
+  const wide = useWide();
   const [tab, setTab] = useState<Tab>('feed');
   const [stack, setStack] = useState<View_[]>([]);
   const [inviteTo, setInviteTo] = useState<UserLite | null>(null);
+  const [news, setNews] = useState(false);
+  const [hasNews, setHasNews] = useState(false);
   const view = stack[stack.length - 1] ?? { kind: 'tab' as const };
   const fade = useRef(new Animated.Value(1)).current;
+  const badgeOf = (t: Tab) => (t === 'amigos' ? friend_requests : t === 'jogar' ? invites : t === 'avisos' ? unread : 0);
 
   const animate = () => {
     fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: nativeDriver }).start();
+    Animated.timing(fade, { toValue: 1, duration: 280, useNativeDriver: nativeDriver }).start();
   };
   const go = useCallback(
     (v: View_) => {
@@ -1008,6 +1227,36 @@ export default function Community(_: Nav) {
     setTab(t);
   };
 
+  // Novidades: ponto no ícone quando saiu versão nova.
+  useEffect(() => {
+    if (!conn) return;
+    request<Changelog>(conn, '/api/changelog')
+      .then(async (d) => setHasNews((await AsyncStorage.getItem(NEWS_SEEN).catch(() => null)) !== d.latest))
+      .catch(() => {});
+  }, [conn, news]);
+
+  // Botão voltar do Android: tela anterior › Feed › Gestão.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (news) {
+        setNews(false);
+        return true;
+      }
+      if (stack.length) {
+        back();
+        return true;
+      }
+      if (tab !== 'feed') {
+        openTab('feed');
+        return true;
+      }
+      onGestao();
+      return true;
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stack.length, tab, news]);
+
   // Notificação tocada ou aviso da tela: abre o destino certo.
   useEffect(() => {
     if (!target) return;
@@ -1019,11 +1268,10 @@ export default function Community(_: Nav) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
-  if (!ready) return <Spinner />;
-  if (!conn) return <Connect />;
-
   let body: React.ReactNode;
-  if (view.kind === 'post') body = <PostScreen key={view.id} id={view.id} go={go} />;
+  if (!ready) body = <Spinner />;
+  else if (!conn) body = <Connect />;
+  else if (view.kind === 'post') body = <PostScreen key={view.id} id={view.id} go={go} />;
   else if (view.kind === 'user') body = <ProfileScreen key={view.code} code={view.code} go={go} invite={setInviteTo} own={view.code === me?.code} />;
   else if (tab === 'feed') body = <FeedTab go={go} />;
   else if (tab === 'amigos') body = <FriendsTab go={go} invite={setInviteTo} />;
@@ -1031,30 +1279,73 @@ export default function Community(_: Nav) {
   else if (tab === 'avisos') body = <NotifsTab go={go} openTab={openTab} />;
   else body = me ? <ProfileScreen code={me.code} go={go} invite={setInviteTo} own /> : <Spinner />;
 
-  return (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: c.line, backgroundColor: c.bg }}>
-        {view.kind !== 'tab' ? (
-          <Pressy accessibilityRole="button" onPress={back} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 8 }}>
-            <ArrowLeft size={18} color={c.ink} />
-            <T style={{ fontWeight: '700' }}>Voltar</T>
-          </Pressy>
-        ) : (
-          <Tabs
-            value={tab}
-            onChange={openTab}
-            options={[
-              { value: 'feed', label: '🔥 Feed' },
-              { value: 'amigos', label: 'Amigos', badge: friend_requests },
-              { value: 'jogar', label: '🎮 Jogar', badge: invites },
-              { value: 'avisos', label: 'Avisos', badge: unread },
-              { value: 'perfil', label: 'Perfil' },
-            ]}
-          />
-        )}
+  const header = (
+    <View style={{ backgroundColor: c.sidebar, paddingTop: insets.top + 10, paddingBottom: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      {view.kind !== 'tab' ? (
+        <Pressy accessibilityRole="button" accessibilityLabel="Voltar" onPress={back} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.sidebarActive, alignItems: 'center', justifyContent: 'center' }}>
+          <ArrowLeft size={20} color="#fff" />
+        </Pressy>
+      ) : (
+        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: c.harvest, alignItems: 'center', justifyContent: 'center' }}>
+          <Flame size={19} color={c.sidebar} />
+        </View>
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: font, color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 }}>AgroSocial</Text>
+        <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 11.5 }} numberOfLines={1}>
+          {view.kind === 'post' ? 'Postagem' : view.kind === 'user' ? 'Perfil' : SOCIAL_TABS.find((x) => x.value === tab)?.label}
+        </Text>
       </View>
-      <Animated.View style={{ flex: 1, opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>{body}</Animated.View>
+      {conn ? (
+        <Pressy accessibilityRole="button" accessibilityLabel="Notas de atualização" onPress={() => setNews(true)} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.sidebarActive, alignItems: 'center', justifyContent: 'center' }}>
+          <Sparkles size={19} color="#fff" />
+          {hasNews ? <View style={{ position: 'absolute', top: 7, right: 7, width: 9, height: 9, borderRadius: 5, backgroundColor: '#FF5A1F' }} /> : null}
+        </Pressy>
+      ) : null}
+      <Pressy accessibilityRole="button" accessibilityLabel="Ir para a Gestão da fazenda" onPress={onGestao} scaleTo={0.95} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.harvest, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 11 }}>
+        <ClipboardList size={17} color={c.sidebar} />
+        <Text style={{ fontFamily: font, fontWeight: '800', color: c.sidebar, fontSize: 13 }}>Gestão</Text>
+      </Pressy>
+    </View>
+  );
+
+  const content = (
+    <Animated.View style={{ flex: 1, opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>{body}</Animated.View>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {header}
+      {wide && conn ? (
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <View style={{ width: 210, padding: 12, gap: 4, borderRightWidth: 1, borderRightColor: c.line, backgroundColor: c.surface }}>
+            {SOCIAL_TABS.map((t) => {
+              const on = view.kind === 'tab' && tab === t.value;
+              return (
+                <Pressy key={t.value} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => openTab(t.value)} scaleTo={0.97} style={{ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, backgroundColor: on ? c.primarySoft : 'transparent' }}>
+                  <t.Icon size={19} color={on ? c.primary : c.muted} />
+                  <Text style={{ flex: 1, fontFamily: font, fontWeight: on ? '800' : '600', color: on ? c.primaryDark : c.ink }}>{t.label}</Text>
+                  <Dot n={badgeOf(t.value)} />
+                </Pressy>
+              );
+            })}
+          </View>
+          {content}
+        </View>
+      ) : (
+        content
+      )}
+      {conn && !wide ? (
+        <View style={{ flexDirection: 'row', backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.line, paddingBottom: insets.bottom }}>
+          {SOCIAL_TABS.map((t) => (
+            <SocialTab key={t.value} label={t.label} Icon={t.Icon} on={view.kind === 'tab' && tab === t.value} badge={badgeOf(t.value)} onPress={() => openTab(t.value)} />
+          ))}
+        </View>
+      ) : null}
       <InviteSheet friend={inviteTo} onClose={() => setInviteTo(null)} />
+      <Sheet visible={news} onClose={() => setNews(false)}>
+        <NewsScreen />
+      </Sheet>
     </View>
   );
 }

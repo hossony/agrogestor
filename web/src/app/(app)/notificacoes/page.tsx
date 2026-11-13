@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCheck, Gamepad2, Heart, MessageCircle, UserPlus } from 'lucide-react';
+import { Award, CheckCheck, Gamepad2, Heart, MessageCircle, UserPlus } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { useEffect } from 'react';
@@ -21,12 +21,15 @@ const ICON: Record<string, React.ReactNode> = {
   invite: <Gamepad2 size={13} color="var(--harvest-ink)" />,
   invite_accept: <Gamepad2 size={13} color="var(--primary)" />,
   invite_decline: <Gamepad2 size={13} color="var(--muted)" />,
+  follow: <UserPlus size={13} color="var(--sell)" />,
+  badge: <Award size={13} color="var(--harvest-ink)" />,
 };
 
 function href(n: Notification) {
   if (n.post_id) return `/post/${n.post_id}`;
   if (n.type.startsWith('invite')) return '/convites';
   if (n.type === 'friend_request') return '/amigos';
+  if (n.type === 'badge') return '/perfil';
   return n.actor ? `/u/${n.actor.code}` : '/feed';
 }
 

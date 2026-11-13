@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Badges } from '@/components/Badges';
 import PostCard from '@/components/PostCard';
 import { Avatar, EASE, Empty, listItem, Spinner } from '@/components/ui';
 import { useLive } from '@/components/Live';
@@ -63,8 +64,9 @@ function CommentItem({ c, onReply, onDelete, canDelete }: { c: Comment; onReply?
       </Link>
       <div className="grow">
         <div className="comment-bubble">
-          <Link href={`/u/${c.author.code}`} className="bold small">
+          <Link href={`/u/${c.author.code}`} className="bold small row" style={{ gap: 5, display: 'inline-flex' }}>
             {c.author.name}
+            <Badges ids={c.author.badges} max={2} />
           </Link>
           <div>{c.body}</div>
         </div>

@@ -6,6 +6,7 @@ export interface UserLite {
   username: string;
   name: string;
   avatar_url: string | null;
+  badges: string[];
 }
 
 export interface Media {

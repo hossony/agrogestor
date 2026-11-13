@@ -5,10 +5,10 @@ import { join } from 'node:path';
 import { NextResponse } from 'next/server';
 import { HttpError, requireUser, route } from '@/lib/auth';
 
-const IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
 const VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
-const MAX_IMAGE = 8 * 1024 * 1024;
-const MAX_VIDEO = 80 * 1024 * 1024;
+const MAX_IMAGE = 25 * 1024 * 1024;
+const MAX_VIDEO = 250 * 1024 * 1024;
 const blobReady = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 /** Sem Blob, só grava em disco em desenvolvimento (ou com LOCAL_UPLOADS=1 num servidor próprio). */
 const localAllowed = () => process.env.NODE_ENV !== 'production' || process.env.LOCAL_UPLOADS === '1';

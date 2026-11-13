@@ -48,20 +48,20 @@ export function compact(v: number): string {
 
 /* ---------- Envio de imagens e vídeos ---------- */
 
-/** Reduz imagens grandes para até 1600 px antes de enviar (economiza espaço no Blob). */
-async function shrinkImage(file: File, max = 1600): Promise<{ file: File; w: number; h: number }> {
+/** Reduz imagens grandes para até 2048 px antes de enviar (economiza espaço no Blob). */
+async function shrinkImage(file: File, max = 2048): Promise<{ file: File; w: number; h: number }> {
   if (file.type === 'image/gif') return { file, w: 0, h: 0 };
   const bmp = await createImageBitmap(file).catch(() => null);
   if (!bmp) return { file, w: 0, h: 0 };
   const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
   const w = Math.round(bmp.width * scale);
   const h = Math.round(bmp.height * scale);
-  if (scale === 1 && file.size < 1.5 * 1024 * 1024) return { file, w, h };
+  if (scale === 1 && file.size < 2.5 * 1024 * 1024) return { file, w, h };
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   canvas.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
-  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/webp', 0.85));
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/webp', 0.88));
   if (!blob) return { file, w, h };
   return { file: new File([blob], file.name.replace(/\.\w+$/, '') + '.webp', { type: 'image/webp' }), w, h };
 }
@@ -88,7 +88,7 @@ export async function uploadMedia(input: File, onProgress?: (pct: number) => voi
   const cfg = await modeCache;
   const prepared = isVideo ? { file: input, ...(await videoSize(input)) } : await shrinkImage(input);
   if (prepared.file.size > (isVideo ? cfg.maxVideo : cfg.maxImage)) {
-    throw new Error(isVideo ? `Vídeo grande demais (máx. ${Math.round(cfg.maxVideo / 1048576)} MB). Corte ou comprima antes.` : 'Imagem grande demais.');
+    throw new Error(isVideo ? `Vídeo grande demais (máx. ${Math.round(cfg.maxVideo / 1048576)} MB). Corte ou comprima antes.` : `Imagem grande demais (máx. ${Math.round(cfg.maxImage / 1048576)} MB).`);
   }
   const meta = { type: (isVideo ? 'video' : 'image') as Media['type'], w: prepared.w || undefined, h: prepared.h || undefined };
 

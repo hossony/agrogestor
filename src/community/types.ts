@@ -9,11 +9,19 @@ export interface UserLite {
   username: string;
   name: string;
   avatar_url: string | null;
+  badges: string[];
 }
 
 export interface Me extends UserLite {
   bio: string;
   banner_url: string | null;
+  privacy: 'public' | 'friends' | 'private';
+  links: Record<string, string>;
+}
+
+export interface Changelog {
+  latest: string;
+  entries: { version: string; date: string; title: string; items: { where: 'site' | 'app' | 'ambos'; text: string }[] }[];
 }
 
 export interface Media {

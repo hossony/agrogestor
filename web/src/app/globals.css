@@ -1256,3 +1256,193 @@ video {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Selos ---------- */
+
+.badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.badge-seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: transform 0.25s var(--ease-out);
+}
+.badge-seal:hover {
+  transform: translateY(-1px) scale(1.06);
+}
+.badges[data-size='md'] .badge-seal {
+  width: auto;
+  height: 24px;
+  padding: 0 10px 0 8px;
+}
+.badges[data-size='md'] .badge-seal svg {
+  width: 13px;
+  height: 13px;
+}
+.badge-owner {
+  background: #111318 !important;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25) inset, 0 2px 8px rgb(0 0 0 / 0.35);
+}
+.badge-owner::before {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  background: conic-gradient(from 0deg, #ff6ec7, #ffd166, #6ef3ff, #a78bfa, #7cffb2, #ff6ec7);
+  opacity: 0.55;
+  animation: holo 3.6s linear infinite;
+  mix-blend-mode: screen;
+}
+.badge-owner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.55) 48%, transparent 62%);
+  background-size: 250% 100%;
+  animation: holo-shine 2.4s var(--ease) infinite;
+}
+.badge-owner > * {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+@keyframes holo {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes holo-shine {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+/* ---------- Links sociais, privacidade, novidades ---------- */
+
+.social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.2s var(--ease), transform 0.2s var(--ease-out);
+}
+.social-link:hover {
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+.radio-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.radio-card[data-on='true'] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.radio-card input {
+  margin-top: 3px;
+  accent-color: var(--primary);
+}
+.release {
+  position: relative;
+  padding-left: 26px;
+}
+.release::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 10px;
+  bottom: -14px;
+  width: 2px;
+  background: var(--line);
+}
+.release:last-child::before {
+  display: none;
+}
+.release-dot {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-soft);
+}
+.release-dot[data-latest='true'] {
+  background: var(--harvest);
+  box-shadow: 0 0 0 4px var(--harvest-soft);
+}
+.where {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.where[data-w='site'] {
+  background: var(--sell-soft);
+  color: var(--sell);
+}
+.where[data-w='app'] {
+  background: var(--harvest-soft);
+  color: var(--harvest-ink);
+}
+.where[data-w='ambos'] {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--harvest);
+  color: #2a1f00;
+  font-weight: 800;
+  font-size: 13.5px;
+  transition: transform 0.2s var(--ease-out), background 0.2s var(--ease);
+}
+.switch-btn:hover {
+  background: #f3b51a;
+  transform: translateY(-1px);
+}

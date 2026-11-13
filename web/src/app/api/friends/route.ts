@@ -4,7 +4,7 @@ import { normalizeCode } from '@/lib/code';
 import { one, q } from '@/lib/db';
 import { notify } from '@/lib/notify';
 
-const COLS = `u.id, u.code, u.username, u.name, u.avatar_url, u.bio, u.farm is not null as has_farm, u.farm->>'farmName' as farm_name`;
+const COLS = `u.id, u.code, u.username, u.name, u.avatar_url, u.badges, u.bio, u.farm is not null as has_farm, u.farm->>'farmName' as farm_name`;
 
 export const GET = route(async () => {
   const me = await requireUser();

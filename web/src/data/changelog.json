@@ -1,0 +1,49 @@
+[
+  {
+    "version": "2.3.0",
+    "date": "2026-11-13",
+    "title": "AgroSocial e Gestão lado a lado, selos e perfis privados",
+    "items": [
+      { "where": "ambos", "text": "Botões para ir e voltar entre o AgroSocial (rede social) e a Gestão da fazenda." },
+      { "where": "ambos", "text": "Privacidade do perfil: público, só amigos ou privado. No privado ninguém vê a fazenda nem o patrimônio." },
+      { "where": "ambos", "text": "Seguir perfis. Cada perfil mostra o número de seguidores (a lista é privada)." },
+      { "where": "ambos", "text": "Selos no perfil: Primeiros fazendeiros (verde), Criador de conteúdo (vermelho), Streamer (roxo), Veterano (amarelo), Verificado (azul) e Dono (preto holográfico)." },
+      { "where": "ambos", "text": "Criadores de conteúdo e streamers podem colocar links do YouTube, Twitch, Kick, Instagram, TikTok, Discord e site no perfil." },
+      { "where": "ambos", "text": "Limite de imagens e vídeos bem maior: fotos até 25 MB e vídeos até 250 MB. As fotos são reduzidas no aparelho antes do envio." },
+      { "where": "ambos", "text": "Esta tela de Notas de atualização." },
+      { "where": "app", "text": "Novo fluxo de telas no celular: o AgroSocial tem a própria barra de abas (Feed, Amigos, Jogar, Avisos e Perfil)." }
+    ]
+  },
+  {
+    "version": "2.2.0",
+    "date": "2026-11-13",
+    "title": "Comunidade dentro do app",
+    "items": [
+      { "where": "app", "text": "Feed, amigos, convites para jogar, avisos e perfil no app do celular e do Windows, sincronizados com o site." },
+      { "where": "app", "text": "Sincronizar a fazenda do save aberto com o perfil." },
+      { "where": "app", "text": "Convites para jogar com aviso na tela e notificação no celular." }
+    ]
+  },
+  {
+    "version": "2.1.0",
+    "date": "2026-11-13",
+    "title": "Site AgroSocial",
+    "items": [
+      { "where": "site", "text": "Feed com fotos e vídeos, curtidas, foguinho 🔥 e comentários com respostas." },
+      { "where": "site", "text": "Amigos pelo ID (AG-XXXXXX) e a fazenda dos amigos: patrimônio, campos, máquinas, animais e silo." },
+      { "where": "site", "text": "Perfil com foto, banner e bio." },
+      { "where": "site", "text": "Chamar para jogar, com notificação no celular e no computador." },
+      { "where": "site", "text": "App de gestão disponível em /gestao." }
+    ]
+  },
+  {
+    "version": "2.0.0",
+    "date": "2026-11-12",
+    "title": "Contas e saves",
+    "items": [
+      { "where": "app", "text": "Contas locais e vários saves por conta, um para cada jogo salvo do FS25." },
+      { "where": "app", "text": "Início de jogo dos mapas oficiais (Riverbend Springs, Zielonka e Hutan Pantai) com lotes, lavouras, máquinas e animais." },
+      { "where": "app", "text": "Guia de jogo, assistente de preparo, vídeos no diário e animações." }
+    ]
+  }
+]

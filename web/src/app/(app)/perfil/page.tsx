@@ -7,13 +7,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import PushCard from '@/components/PushCard';
 import { Avatar, CopyCode, EASE, EASE_OUT, Spinner } from '@/components/ui';
+import { canHaveLinks, LINK_SITES, PRIVACY, type Privacy } from '@/lib/badges';
 import { api, uploadMedia, useMe } from '@/lib/client';
+import { Badges } from '@/components/Badges';
 
 function EditInner() {
   const { data: me, mutate } = useMe();
   const router = useRouter();
   const welcome = useSearchParams().get('novo') === '1';
-  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null });
+  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null, privacy: 'friends' as Privacy, links: {} as Record<string, string> });
   const [pw, setPw] = useState({ password: '', newPassword: '' });
   const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -21,8 +23,12 @@ function EditInner() {
   const avatarRef = useRef<HTMLInputElement>(null);
   const bannerRef = useRef<HTMLInputElement>(null);
 
+  // Preenche o formulário uma vez só: recarregar a conta em segundo plano não pode apagar o que a pessoa mudou.
+  const filled = useRef(false);
   useEffect(() => {
-    if (me) setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url });
+    if (!me || filled.current) return;
+    filled.current = true;
+    setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url, privacy: me.privacy ?? 'friends', links: me.links ?? {} });
   }, [me]);
 
   const pick = async (kind: 'avatar' | 'banner', file?: File) => {
@@ -131,6 +137,52 @@ function EditInner() {
           </div>
         </div>
       </motion.div>
+
+      <div className="card card-pad stack">
+        <div>
+          <div className="bold">Privacidade da fazenda</div>
+          <div className="small muted">Quem pode ver a sua fazenda e o seu patrimônio no perfil. As postagens no feed são sempre públicas.</div>
+        </div>
+        <div className="stack" style={{ gap: 8 }}>
+          {PRIVACY.map((p) => (
+            <label key={p.id} className="radio-card" data-on={form.privacy === p.id}>
+              <input type="radio" name="privacy" checked={form.privacy === p.id} onChange={() => setForm((f) => ({ ...f, privacy: p.id }))} />
+              <span>
+                <span className="bold">{p.label}</span>
+                <span className="small muted" style={{ display: 'block' }}>
+                  {p.desc}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {me.badges?.length > 0 && (
+        <div className="card card-pad stack" style={{ gap: 8 }}>
+          <div className="bold">Seus selos</div>
+          <Badges ids={me.badges} size="md" />
+        </div>
+      )}
+
+      {canHaveLinks(me.badges) && (
+        <div className="card card-pad stack">
+          <div>
+            <div className="bold">Links sociais</div>
+            <div className="small muted">Aparecem no seu perfil. Pode colar o link completo ou só o @ do canal.</div>
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            {LINK_SITES.map((s) => (
+              <div key={s.id} className="row">
+                <span style={{ width: 110, fontSize: 13.5, fontWeight: 700 }}>
+                  {s.emoji} {s.label}
+                </span>
+                <input className="input" value={form.links[s.id] ?? ''} placeholder={s.prefix + (s.id === 'site' ? 'seusite.com' : 'seucanal')} onChange={(e) => setForm((f) => ({ ...f, links: { ...f.links, [s.id]: e.target.value } }))} maxLength={200} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card card-pad stack">
         <div className="bold">Trocar senha</div>

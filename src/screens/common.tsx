@@ -2,7 +2,7 @@ import { FieldDef, Option, StripCell } from '../ui';
 import { Crop, Data, Planting } from '../types';
 import { periodIndex } from '../utils';
 
-export type Route = 'painel' | 'talhoes' | 'safras' | 'calendario' | 'estoque' | 'vendas' | 'financeiro' | 'tarefas' | 'diario' | 'frota' | 'animais' | 'avisos' | 'culturas' | 'ajustes' | 'guia' | 'comunidade';
+export type Route = 'painel' | 'talhoes' | 'safras' | 'calendario' | 'estoque' | 'vendas' | 'financeiro' | 'tarefas' | 'diario' | 'frota' | 'animais' | 'avisos' | 'culturas' | 'ajustes' | 'guia';
 export interface Nav {
   /** `intent: 'novo'` abre a tela já com o formulário de cadastro. */
   go: (r: Route, intent?: string) => void;

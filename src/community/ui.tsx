@@ -7,6 +7,7 @@ import { c, font, radius } from '../theme';
 import { Badge, Btn, Card, T } from '../ui';
 import { VideoPlayer } from '../video';
 import { Conn, mediaUrl, request } from './api';
+import { sortBadges } from './badges';
 import { farmTotals, type FarmSnapshot } from './farm';
 import { useCommunity } from './store';
 import { categoryOf, Media, Post, timeAgo, UserLite } from './types';
@@ -215,6 +216,7 @@ export function PostCard({ post, onOpenPost, onOpenUser, onDeleted, index = 0 }:
               <T v="h2" numberOfLines={1} style={{ fontSize: 15, flexShrink: 1 }}>
                 {p.author.name}
               </T>
+              <Badges ids={p.author.badges} max={3} />
               {p.fire_count >= 5 ? <Badge label="🔥 Em alta" tone="red" /> : null}
             </View>
             <T v="small" numberOfLines={1}>
@@ -515,6 +517,53 @@ export function FarmView({ farm, updatedAt }: { farm: FarmSnapshot; updatedAt?: 
             ? farm.stock.map((s, i) => row(`s${i}`, <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: s.color || c.harvest }} />, s.name, 'no silo', <T style={{ fontWeight: '700' }}>{`${num(s.qty)} ${farm.qtyUnit}`}</T>))
             : <T v="small" style={{ paddingTop: 12 }}>Silo vazio.</T>)}
       </Card>
+    </View>
+  );
+}
+
+/* ---------- Selos ---------- */
+
+
+function OwnerSeal({ size }: { size: number }) {
+  // Brilho holográfico: a borda e o reflexo trocam de cor continuamente.
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(v, { toValue: 1, duration: 3600, easing: Easing.linear, useNativeDriver: false }));
+    loop.start();
+    return () => loop.stop();
+  }, [v]);
+  const border = v.interpolate({ inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1], outputRange: ['#ff6ec7', '#ffd166', '#6ef3ff', '#a78bfa', '#7cffb2', '#ff6ec7'] });
+  const glow = v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.8, 0.35] });
+  return (
+    <Animated.View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#111318', borderWidth: 1.5, borderColor: border, alignItems: 'center', justifyContent: 'center', shadowColor: '#fff', shadowOpacity: glow as never, shadowRadius: 4, elevation: 3 }}>
+      <Animated.Text style={{ fontSize: size * 0.55, color: border, fontWeight: '900', lineHeight: size * 0.7 }}>♛</Animated.Text>
+    </Animated.View>
+  );
+}
+
+const SEAL_GLYPH: Record<string, string> = { verified: '✓', creator: '▶', streamer: '◉', veteran: '★', pioneer: '🌱' };
+
+export function Badges({ ids, size = 'sm', max }: { ids?: string[] | null; size?: 'sm' | 'md'; max?: number }) {
+  const list = sortBadges(ids);
+  if (!list.length) return null;
+  const shown = max ? list.slice(0, max) : list;
+  const d = size === 'md' ? 24 : 17;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: size === 'md' ? 'wrap' : 'nowrap' }}>
+      {shown.map((b) =>
+        b.id === 'owner' ? (
+          <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }} accessibilityLabel={b.label}>
+            <OwnerSeal size={d} />
+            {size === 'md' ? <Text style={{ fontFamily: font, fontSize: 12, fontWeight: '800', color: c.ink }}>{b.short}</Text> : null}
+          </View>
+        ) : (
+          <View key={b.id} accessibilityLabel={b.label} style={{ height: d, minWidth: d, paddingHorizontal: size === 'md' ? 9 : 0, borderRadius: d / 2, backgroundColor: b.color, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4 }}>
+            <Text style={{ fontSize: size === 'md' ? 12 : 10, color: b.ink, fontWeight: '900', lineHeight: size === 'md' ? 15 : 12 }}>{SEAL_GLYPH[b.id] ?? '•'}</Text>
+            {size === 'md' ? <Text style={{ fontFamily: font, fontSize: 12, fontWeight: '800', color: b.ink }}>{b.short}</Text> : null}
+          </View>
+        ),
+      )}
+      {max && list.length > max ? <Text style={{ fontFamily: font, fontSize: 11, color: c.faint }}>+{list.length - max}</Text> : null}
     </View>
   );
 }

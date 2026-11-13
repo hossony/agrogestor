@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Bell, BookImage, Flame, CalendarRange, Camera, Film, GraduationCap, HandCoins, LayoutDashboard, ListChecks, Map as MapIcon, Menu, PawPrint, Plus, Settings as SettingsIcon, Sprout, Tractor, Wallet, Warehouse, Wheat } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -7,7 +8,7 @@ import { farmAlerts } from './src/alerts';
 import { systemNotify } from './src/notify';
 import Animals from './src/screens/Animals';
 import Calendar from './src/screens/Calendar';
-import Community from './src/screens/Community';
+import SocialShell from './src/screens/Community';
 import { CommunityProvider, useCommunity } from './src/community/store';
 import { Nav, Route } from './src/screens/common';
 import Crops from './src/screens/Crops';
@@ -34,7 +35,6 @@ import { MONTHS_FULL, yearLabel } from './src/utils';
 
 type IconType = React.ComponentType<{ size?: number; color?: string }>;
 const ROUTES: { key: Route; label: string; icon: IconType; group: string }[] = [
-  { key: 'comunidade', label: 'Comunidade', icon: Flame, group: 'Comunidade' },
   { key: 'painel', label: 'Painel', icon: LayoutDashboard, group: 'Fazenda' },
   { key: 'avisos', label: 'Avisos', icon: Bell, group: 'Fazenda' },
   { key: 'talhoes', label: 'Talhões', icon: MapIcon, group: 'Fazenda' },
@@ -51,7 +51,7 @@ const ROUTES: { key: Route; label: string; icon: IconType; group: string }[] = [
   { key: 'culturas', label: 'Culturas', icon: Wheat, group: 'Patrimônio' },
   { key: 'ajustes', label: 'Ajustes', icon: SettingsIcon, group: 'Patrimônio' },
 ];
-const TABS: Route[] = ['painel', 'comunidade', 'diario'];
+const TABS: Route[] = ['painel', 'safras', 'diario'];
 const QUICK: { label: string; route: Route; icon: IconType; intent?: string }[] = [
   { label: 'Vídeo da colheita', route: 'diario', icon: Film, intent: 'modelo:Colheita' },
   { label: 'Vídeo do plantio', route: 'diario', icon: Film, intent: 'modelo:Plantio' },
@@ -78,7 +78,6 @@ const SCREENS: Record<Route, React.ComponentType<Nav>> = {
   culturas: Crops,
   ajustes: Settings,
   guia: Guide,
-  comunidade: Community,
 };
 
 function Brand() {
@@ -107,13 +106,25 @@ function CountBadge({ n }: { n: number }) {
   );
 }
 
-function Sidebar({ route, go, unread }: { route: Route; go: (r: Route) => void; unread: number }) {
-  const { data, now, currentSave, closeSave } = useStore();
+/** Botão amarelo que leva da Gestão para o AgroSocial (e mostra os avisos pendentes). */
+function SocialButton({ onPress, compact }: { onPress: () => void; compact?: boolean }) {
   const social = useSocialBadge();
+  return (
+    <Pressy accessibilityRole="button" accessibilityLabel="Ir para o AgroSocial" onPress={onPress} scaleTo={0.95} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.harvest, borderRadius: 12, paddingVertical: compact ? 8 : 10, paddingHorizontal: compact ? 10 : 12 }}>
+      <Flame size={18} color={c.sidebar} />
+      {!compact ? <Text style={{ fontFamily: font, fontWeight: '800', color: c.sidebar, fontSize: 14 }}>AgroSocial</Text> : null}
+      {social ? <View style={{ marginLeft: compact ? -4 : 'auto' }}><CountBadge n={social} /></View> : null}
+    </Pressy>
+  );
+}
+
+function Sidebar({ route, go, unread, onSocial }: { route: Route; go: (r: Route) => void; unread: number; onSocial: () => void }) {
+  const { data, now, currentSave, closeSave } = useStore();
   const groups = [...new Set(ROUTES.map((r) => r.group))];
   return (
     <View style={{ width: 232, backgroundColor: c.sidebar, paddingVertical: 20, paddingHorizontal: 12 }}>
-      <View style={{ paddingHorizontal: 8, marginBottom: 18 }}><Brand /></View>
+      <View style={{ paddingHorizontal: 8, marginBottom: 14 }}><Brand /></View>
+      <View style={{ marginBottom: 14, paddingHorizontal: 2 }}><SocialButton onPress={onSocial} /></View>
       <ScrollView showsVerticalScrollIndicator={false}>
         {groups.map((g) => (
           <View key={g} style={{ marginBottom: 12 }}>
@@ -126,7 +137,7 @@ function Sidebar({ route, go, unread }: { route: Route; go: (r: Route) => void; 
                   {on ? <View style={{ position: 'absolute', left: -12, top: 8, bottom: 8, width: 4, borderRadius: 2, backgroundColor: c.harvest }} /> : null}
                   <Icon size={18} color={on ? c.harvest : c.sidebarInk} />
                   <Text style={{ fontFamily: font, fontSize: 14.5, fontWeight: on ? '700' : '500', color: on ? '#fff' : c.sidebarInk, flex: 1 }}>{r.label}</Text>
-                  {r.key === 'avisos' ? <CountBadge n={unread} /> : r.key === 'comunidade' ? <CountBadge n={social} /> : null}
+                  {r.key === 'avisos' ? <CountBadge n={unread} /> : null}
                 </Pressy>
               );
             })}
@@ -164,16 +175,15 @@ function TabItem({ label, Icon, on, onPress, badge = 0 }: { label: string; Icon:
 
 function BottomBar({ route, go, openMenu, openQuick }: { route: Route; go: (r: Route) => void; openMenu: () => void; openQuick: () => void }) {
   const insets = useSafeAreaInsets();
-  const social = useSocialBadge();
   const item = (key: string, label: string, Icon: IconType, on: boolean, onPress: () => void, badge = 0) => <TabItem key={key} label={label} Icon={Icon} on={on} onPress={onPress} badge={badge} />;
   const tab = (k: Route) => {
     const r = ROUTES.find((x) => x.key === k)!;
-    return item(k, r.label, r.icon, route === k, () => go(k), k === 'comunidade' ? social : 0);
+    return item(k, r.label, r.icon, route === k, () => go(k));
   };
   return (
     <View style={{ flexDirection: 'row', backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.line, paddingBottom: insets.bottom }}>
       {tab('painel')}
-      {tab('comunidade')}
+      {tab('safras')}
       <View style={{ flex: 1, alignItems: 'center' }}>
         <Pressy accessibilityRole="button" accessibilityLabel="Novo registro" onPress={openQuick} scaleTo={0.88} style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', marginTop: -18, borderWidth: 4, borderColor: c.bg }}>
           <Plus size={26} color="#fff" />
@@ -218,6 +228,23 @@ function Shell() {
   const [toast, setToast] = useState('');
   const route = nav.route;
 
+  // Dois modos no mesmo app: Gestão da fazenda e AgroSocial (rede social).
+  const [mode, setMode] = useState<'gestao' | 'social' | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem('agrogestor:modo')
+      .then((v) => setMode(v === 'social' ? 'social' : 'gestao'))
+      .catch(() => setMode('gestao'));
+  }, []);
+  const switchMode = (m: 'gestao' | 'social') => {
+    // Dentro do site (/gestao), o AgroSocial é o próprio site.
+    if (m === 'social' && Platform.OS === 'web' && typeof location !== 'undefined' && location.pathname.startsWith('/gestao')) {
+      location.href = `${location.origin}/feed`;
+      return;
+    }
+    setMode(m);
+    AsyncStorage.setItem('agrogestor:modo', m).catch(() => {});
+  };
+
   const alerts = useMemo(() => farmAlerts(data, now), [data, now]);
   const unread = alerts.filter((a) => !data.readAlerts.includes(a.id)).length;
 
@@ -238,6 +265,7 @@ function Shell() {
   }, [alerts, data.settings.systemNotifications]);
 
   useEffect(() => {
+    if (mode === 'social') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (route !== 'painel') {
         setNav((v) => ({ route: 'painel', n: v.n + 1 }));
@@ -246,7 +274,7 @@ function Shell() {
       return false;
     });
     return () => sub.remove();
-  }, [route]);
+  }, [route, mode]);
 
   const go = (r: Route, intent?: string) => {
     setNav((v) => ({ route: r, intent, n: v.n + 1 }));
@@ -262,10 +290,20 @@ function Shell() {
     </>
   );
 
+  if (mode === null) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (mode === 'social') {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
+        <SocialShell onGestao={() => switchMode('gestao')} />
+        <CelebrateHost />
+      </View>
+    );
+  }
+
   if (wide) {
     return (
       <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.bg }}>
-        <Sidebar route={route} go={go} unread={unread} />
+        <Sidebar route={route} go={go} unread={unread} onSocial={() => switchMode('social')} />
         <View style={{ flex: 1 }}>
           {screen}
           <Toast text={toast} top={8} onPress={() => go('avisos')} />
@@ -281,6 +319,7 @@ function Shell() {
       <View style={{ backgroundColor: c.sidebar, paddingTop: insets.top + 10, paddingBottom: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Brand />
         <View style={{ flexDirection: 'row', gap: 8 }}>
+        <SocialButton compact onPress={() => switchMode('social')} />
         <Pressy accessibilityRole="button" accessibilityLabel="Guia e dicas" onPress={() => go('guia')} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: route === 'guia' ? c.harvest : c.sidebarActive, alignItems: 'center', justifyContent: 'center' }}>
           <GraduationCap size={20} color={route === 'guia' ? c.sidebar : '#fff'} />
         </Pressy>

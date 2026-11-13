@@ -2,7 +2,7 @@ import 'server-only';
 import bcrypt from 'bcryptjs';
 import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { one } from './db';
+import { one, q } from './db';
 import { COOKIE, readSession } from './session';
 
 export interface Me {
@@ -13,6 +13,17 @@ export interface Me {
   bio: string;
   avatar_url: string | null;
   banner_url: string | null;
+  badges: string[];
+  privacy: 'public' | 'friends' | 'private';
+  links: Record<string, string>;
+}
+
+export const ME_COLS = 'id, code, username, name, bio, avatar_url, banner_url, badges, privacy, links';
+
+/** O dono (OWNER_USERNAME) ganha o selo preto na primeira vez que entra. */
+export async function ensureOwnerBadge(userId: string, username: string) {
+  const owner = (process.env.OWNER_USERNAME || '').trim().toLowerCase().replace(/^@/, '');
+  if (owner && username === owner) await q(`update users set badges = array_append(badges, 'owner') where id = $1 and not ('owner' = any(badges))`, [userId]);
 }
 
 export const hashPassword = (p: string) => bcrypt.hash(p, 10);
@@ -24,7 +35,7 @@ export async function currentUser(): Promise<Me | null> {
   const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : (await cookies()).get(COOKIE)?.value;
   const id = await readSession(token);
   if (!id) return null;
-  return one<Me>('select id, code, username, name, bio, avatar_url, banner_url from users where id = $1', [id]);
+  return one<Me>(`select ${ME_COLS} from users where id = $1`, [id]);
 }
 
 export class HttpError extends Error {

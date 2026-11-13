@@ -2,7 +2,7 @@ import 'server-only';
 import { one } from './db';
 import { pushTo } from './push';
 
-export type NotifType = 'friend_request' | 'friend_accept' | 'like' | 'fire' | 'comment' | 'reply' | 'invite' | 'invite_accept' | 'invite_decline';
+export type NotifType = 'friend_request' | 'friend_accept' | 'like' | 'fire' | 'comment' | 'reply' | 'invite' | 'invite_accept' | 'invite_decline' | 'follow' | 'badge';
 
 interface Opts {
   userId: string;

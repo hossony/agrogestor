@@ -39,3 +39,17 @@ test('endereço do site', () => {
   assert.equal(normalizeUrl('localhost:3000'), 'http://localhost:3000');
   assert.equal(normalizeUrl(''), '');
 });
+
+test('os selos do app são o mesmo arquivo do site', () => {
+  assert.equal(readFileSync('src/community/badges.ts', 'utf8'), readFileSync('web/src/lib/badges.ts', 'utf8'));
+});
+
+test('links sociais viram URLs https', async () => {
+  const { normalizeLink, sanitizeLinks, canHaveLinks } = await import('../src/community/badges');
+  assert.equal(normalizeLink('youtube', '@canal'), 'https://youtube.com/@canal');
+  assert.equal(normalizeLink('twitch', 'meucanal'), 'https://twitch.tv/meucanal');
+  assert.equal(normalizeLink('site', 'http://x.com'), 'https://x.com');
+  assert.deepEqual(sanitizeLinks({ youtube: '', instagram: 'foto', hack: 'x' }), { instagram: 'https://instagram.com/foto' });
+  assert.equal(canHaveLinks(['pioneer']), false);
+  assert.equal(canHaveLinks(['creator']), true);
+});

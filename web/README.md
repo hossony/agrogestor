@@ -23,6 +23,18 @@ Por que Neon e não Supabase: o Supabase grátis **pausa o projeto depois de 7 d
 
 As imagens são reduzidas para no máximo 1600 px (WebP) no navegador antes do envio, para render bem a cota do Blob.
 
+## Selos, privacidade e seguidores
+
+- **Selos:** verde (Primeiros fazendeiros, automático para os 100 primeiros cadastros), vermelho (Criador de conteúdo), roxo (Streamer), amarelo (Veterano), azul (Verificado) e preto holográfico (Dono).
+- **Selo de dono:** defina a variável `OWNER_USERNAME` na Vercel com o seu usuário (sem @). Na próxima vez que você entrar, o selo aparece. Só o dono vê o botão **Selos** no perfil das outras pessoas, para conceder ou tirar os demais selos.
+- **Links sociais:** quem tem selo de Criador, Streamer ou Dono pode colocar YouTube, Twitch, Kick, Instagram, TikTok, Discord e site em Editar perfil.
+- **Privacidade:** público, só amigos (padrão) ou privado. Vale para a fazenda e o patrimônio; as postagens continuam públicas.
+- **Seguir:** cada perfil mostra o número de seguidores. A lista de quem segue não aparece para ninguém.
+
+## Notas de atualização
+
+Ficam em `src/data/changelog.json` e aparecem em **/novidades** (site) e no botão ✨ do AgroSocial (app). A cada atualização, acrescente uma entrada no topo com a versão, a data, o título e os itens (`"where": "site" | "app" | "ambos"`).
+
 ## Publicar na Vercel
 
 1. Na Vercel: **Add New › Project** e importe este repositório.

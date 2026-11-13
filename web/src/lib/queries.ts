@@ -6,7 +6,7 @@ import { Comment, Invite, Post, Relation, UserLite } from './types';
 export const FRIEND_IDS = `(select case when f.requester_id = $1 then f.addressee_id else f.requester_id end
   from friendships f where f.status = 'accepted' and (f.requester_id = $1 or f.addressee_id = $1))`;
 
-const lite = (prefix: string) => `json_build_object('id', ${prefix}.id, 'code', ${prefix}.code, 'username', ${prefix}.username, 'name', ${prefix}.name, 'avatar_url', ${prefix}.avatar_url)`;
+export const lite = (prefix: string) => `json_build_object('id', ${prefix}.id, 'code', ${prefix}.code, 'username', ${prefix}.username, 'name', ${prefix}.name, 'avatar_url', ${prefix}.avatar_url, 'badges', ${prefix}.badges)`;
 
 export const POST_SELECT = `select p.id, p.body, p.category, p.media, p.like_count, p.fire_count, p.comment_count, p.created_at,
   ${lite('u')} as author,
@@ -54,8 +54,8 @@ export async function getInvite(me: string, id: string): Promise<Invite | null> 
 }
 
 export async function userByCode(code: string) {
-  return one<UserLite & { bio: string; banner_url: string | null; farm: unknown; farm_updated_at: string | null; created_at: string }>(
-    'select id, code, username, name, avatar_url, bio, banner_url, farm, farm_updated_at, created_at from users where code = $1 or username = lower($1)',
+  return one<UserLite & { bio: string; banner_url: string | null; farm: unknown; farm_updated_at: string | null; created_at: string; privacy: string; links: Record<string, string>; follower_count: number }>(
+    'select id, code, username, name, avatar_url, badges, bio, banner_url, farm, farm_updated_at, created_at, privacy, links, follower_count from users where code = $1 or username = lower($1)',
     [code],
   );
 }

@@ -41,7 +41,7 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
     body: text,
     created_at: row.created_at,
     mine: true,
-    author: { id: me.id, code: me.code, username: me.username, name: me.name, avatar_url: me.avatar_url },
+    author: { id: me.id, code: me.code, username: me.username, name: me.name, avatar_url: me.avatar_url, badges: me.badges },
   };
   return NextResponse.json(comment);
 });

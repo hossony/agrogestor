@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 import type { Media } from './types';
 import { normalizeUrl } from './url';
@@ -63,6 +64,41 @@ export const mediaUrl = (conn: Pick<Conn, 'url'>, u: string | null | undefined) 
  * site, o arquivo vai direto para o Blob (o servidor só autoriza); sem ele
  * (desenvolvimento), vai para o próprio servidor.
  */
+/** Reduz a foto para no máximo 2048 px antes do envio (fotos de celular costumam passar de 10 MB). */
+export async function shrinkImage(asset: { uri: string; width?: number; height?: number; file?: File; mimeType?: string | null }): Promise<{ uri: string; width?: number; height?: number; file?: File; mimeType?: string }> {
+  const MAX = 2048;
+  const w = asset.width ?? 0;
+  const h = asset.height ?? 0;
+  if (Platform.OS === 'web') {
+    const file = asset.file;
+    if (!file || !file.type.startsWith('image/') || file.type === 'image/gif') return { ...asset, mimeType: asset.mimeType ?? undefined };
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+      if (scale === 1 && file.size < 2.5 * 1024 * 1024) return { ...asset, width: bmp.width, height: bmp.height, mimeType: file.type };
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.88));
+      if (!blob) return { ...asset, mimeType: asset.mimeType ?? undefined };
+      const out = new File([blob], 'foto.jpg', { type: 'image/jpeg' });
+      return { uri: URL.createObjectURL(out), width: canvas.width, height: canvas.height, file: out, mimeType: 'image/jpeg' };
+    } catch {
+      return { ...asset, mimeType: asset.mimeType ?? undefined };
+    }
+  }
+  try {
+    const ctx = ImageManipulator.ImageManipulator.manipulate(asset.uri);
+    if (w && h && Math.max(w, h) > MAX) ctx.resize(w >= h ? { width: MAX } : { height: MAX });
+    const ref = await ctx.renderAsync();
+    const out = await ref.saveAsync({ compress: 0.85, format: ImageManipulator.SaveFormat.JPEG });
+    return { uri: out.uri, width: out.width, height: out.height, mimeType: 'image/jpeg' };
+  } catch {
+    return { ...asset, mimeType: asset.mimeType ?? undefined };
+  }
+}
+
 export async function uploadMedia(conn: Conn, asset: { uri: string; type: Media['type']; mimeType?: string | null; fileName?: string | null; file?: File; width?: number; height?: number }, onProgress?: (pct: number) => void): Promise<Media> {
   const cfg = await request<{ mode: 'blob' | 'local'; maxImage: number; maxVideo: number }>(conn, '/api/upload');
   const isVideo = asset.type === 'video';
