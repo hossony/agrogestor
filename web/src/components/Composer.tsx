@@ -1,10 +1,11 @@
 'use client';
 
-import { ImagePlus, Send, Video, X } from 'lucide-react';
+import { ImagePlus, Link2, Send, Smile, Video, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { api, uploadMedia, useMe } from '@/lib/client';
 import { CATEGORIES, Media, Post } from '@/lib/types';
+import { EmojiButton } from './RichText';
 import { Avatar, EASE, SPRING, Spinner } from './ui';
 
 interface Item {
@@ -30,7 +31,40 @@ export default function Composer({ onPosted }: { onPosted: (p: Post) => void }) 
   const expanded = focused || text.length > 0 || items.length > 0;
   const uploading = items.some((i) => !i.media && !i.error);
 
-  const addFiles = (files: FileList | null) => {
+  /** Insere texto (emoji ou link) onde está o cursor. */
+  const insert = (t: string) => {
+    const el = area.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + t + text.slice(end);
+    setText(next);
+    setFocused(true);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      el.selectionStart = el.selectionEnd = start + t.length;
+    });
+  };
+  const addLink = () => {
+    const url = prompt('Cole o link (YouTube, Twitch, site…):');
+    if (!url) return;
+    const clean = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
+    insert(`${text && !/\s$/.test(text) ? ' ' : ''}${clean} `);
+  };
+
+  /** Ctrl+V com um print na área de transferência vira foto da postagem. */
+  const onPaste = (e: React.ClipboardEvent) => {
+    const files = Array.from(e.clipboardData.items)
+      .filter((i) => i.kind === 'file' && (i.type.startsWith('image/') || i.type.startsWith('video/')))
+      .map((i) => i.getAsFile())
+      .filter((f): f is File => Boolean(f))
+      .map((f) => (f.name && f.name !== 'image.png' ? f : new File([f], `print-${Date.now()}.${f.type.split('/')[1] || 'png'}`, { type: f.type })));
+    if (!files.length) return;
+    e.preventDefault();
+    addFiles(files);
+  };
+
+  const addFiles = (files: FileList | File[] | null) => {
     if (!files) return;
     setError('');
     const room = 6 - items.length;
@@ -67,7 +101,7 @@ export default function Composer({ onPosted }: { onPosted: (p: Post) => void }) 
   };
 
   return (
-    <motion.div className="card card-pad composer" layout transition={EASE} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), addFiles(e.dataTransfer.files))}>
+    <motion.div className="card card-pad composer" layout transition={EASE} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), addFiles(e.dataTransfer.files))} onPaste={onPaste}>
       <div className="row" style={{ alignItems: 'flex-start' }}>
         <Avatar user={me ?? null} size={42} />
         <textarea
@@ -79,7 +113,7 @@ export default function Composer({ onPosted }: { onPosted: (p: Post) => void }) 
             e.target.style.height = `${Math.min(e.target.scrollHeight, 320)}px`;
           }}
           onFocus={() => setFocused(true)}
-          placeholder="Como está a fazenda hoje? Mostre a colheita, a máquina nova…"
+          placeholder="Como está a fazenda hoje? Cole um print com Ctrl+V, mostre a colheita…"
           rows={2}
           maxLength={4000}
         />
@@ -141,6 +175,12 @@ export default function Composer({ onPosted }: { onPosted: (p: Post) => void }) 
         </button>
         <button className="btn btn-sm btn-ghost" style={{ border: 0 }} onClick={() => fileRef.current?.click()} disabled={items.length >= 6}>
           <Video size={17} color="var(--fire)" /> Vídeo
+        </button>
+        <EmojiButton onPick={insert}>
+          <Smile size={17} color="var(--harvest-ink)" />
+        </EmojiButton>
+        <button className="btn btn-sm btn-ghost" style={{ border: 0 }} onClick={addLink} aria-label="Adicionar link">
+          <Link2 size={17} color="var(--sell)" />
         </button>
         <span className="grow" />
         <AnimatePresence>

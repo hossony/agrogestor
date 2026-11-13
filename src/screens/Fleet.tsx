@@ -1,4 +1,6 @@
-import { Tractor } from 'lucide-react-native';
+import { BookOpen, Tractor } from 'lucide-react-native';
+import { CatalogPicker, fleetCategory } from '../community/CatalogPicker';
+import { machineName } from '../community/catalog';
 import React, { useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import { CountUp } from '../anim';
@@ -7,7 +9,7 @@ import { deleteImage } from '../media';
 import { useStore } from '../store';
 import { c } from '../theme';
 import { Machine } from '../types';
-import { AddBtn, Badge, Card, DetailSheet, Empty, FieldDef, FormSheet, Photo, Screen, Segmented, Stat, T, useConfirm, useWide } from '../ui';
+import { AddBtn, Badge, Btn, Card, DetailSheet, Empty, FieldDef, FormSheet, Photo, Screen, Segmented, Stat, T, useConfirm, useWide } from '../ui';
 import { money, num } from '../utils';
 
 const CATS = ['Trator', 'Colheitadeira', 'Veículo', 'Caminhão', 'Carreta', 'Implemento', 'Ferramenta', 'Outros'];
@@ -26,6 +28,7 @@ export default function Fleet() {
   const [cat, setCat] = useState('todos');
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState(false);
 
   const motor = (v: Record<string, any>) => MOTOR.includes(v.category);
   const tool = (v: Record<string, any>) => v.category === 'Ferramenta';
@@ -63,7 +66,16 @@ export default function Fleet() {
     confirm({ title: `Excluir ${m.name}?`, message: 'O item sai da frota e a imagem é apagada.', confirmLabel: 'Excluir da frota', onConfirm: () => { deleteImage(m.photo); remove('machines', m.id); setOpenId(null); } });
 
   return (
-    <Screen title="Frota" subtitle="Tratores, veículos, implementos e ferramentas" action={<AddBtn label="Cadastrar" onPress={() => setEditing(blank)} />}>
+    <Screen
+      title="Frota"
+      subtitle="Tratores, veículos, implementos e ferramentas"
+      action={
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <Btn kind="ghost" label="Do catálogo FS25" icon={<BookOpen size={16} color={c.ink} />} onPress={() => setCatalog(true)} />
+          <AddBtn label="Cadastrar" onPress={() => setEditing(blank)} />
+        </View>
+      }
+    >
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         <Stat label="Patrimônio próprio" value={<CountUp value={totalValue} format={(n) => money(n, st)} />} note={`${owned.length} de ${data.machines.length} itens`} />
         <Stat label="Manutenção por dia" value={<CountUp value={upkeep} format={(n) => money(n, st)} />} note="soma de toda a frota" />
@@ -73,7 +85,7 @@ export default function Fleet() {
       {cats.length > 1 ? <Segmented value={cat} onChange={setCat} options={[{ value: 'todos', label: 'Todos' }, ...cats.map((x) => ({ value: x, label: PLURAL[x] }))]} /> : null}
 
       {rows.length === 0 ? (
-        <Card><Empty title="Nada cadastrado aqui" hint="Cadastre cada trator, veículo, implemento e ferramenta com imagem e especificações do jogo." action={<AddBtn label="Cadastrar" onPress={() => setEditing(blank)} />} /></Card>
+        <Card><Empty title="Nada cadastrado aqui" hint="Escolha no catálogo do FS25 (preço, potência e imagem já vêm prontos) ou cadastre à mão." action={<Btn label="Abrir catálogo do FS25" icon={<BookOpen size={16} color="#fff" />} onPress={() => setCatalog(true)} />} /></Card>
       ) : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>
           {rows.map((m) => {
@@ -133,6 +145,30 @@ export default function Fleet() {
           </View>
         ) : null}
       </DetailSheet>
+      <CatalogPicker
+        visible={catalog}
+        currency={st.currency}
+        onClose={() => setCatalog(false)}
+        onPick={(m, img) => {
+          setCatalog(false);
+          // Preenche o cadastro com os dados do jogo; a pessoa confere e salva.
+          setEditing({
+            ...blank,
+            name: machineName(m),
+            brand: m.brand,
+            category: fleetCategory(m.category),
+            value: m.price ?? '',
+            upkeep: m.upkeep ?? '',
+            powerCv: m.hp_max ?? m.hp_min ?? '',
+            speedKmh: m.speed ?? '',
+            widthM: m.width ?? '',
+            capacityL: m.capacity ?? '',
+            photo: img ?? undefined,
+            catalogId: m.id,
+            notes: m.verified ? m.notes : [m.notes, 'Valores do catálogo: confira no jogo.'].filter(Boolean).join(' '),
+          });
+        }}
+      />
       <FormSheet
         visible={!!editing}
         title={editing?.id ? 'Editar item da frota' : 'Cadastrar na frota'}

@@ -10,12 +10,13 @@ import { Avatar, CopyCode, EASE, EASE_OUT, Spinner } from '@/components/ui';
 import { canHaveLinks, LINK_SITES, PRIVACY, type Privacy } from '@/lib/badges';
 import { api, uploadMedia, useMe } from '@/lib/client';
 import { Badges } from '@/components/Badges';
+import { PlatformPicker } from '@/components/Platform';
 
 function EditInner() {
   const { data: me, mutate } = useMe();
   const router = useRouter();
   const welcome = useSearchParams().get('novo') === '1';
-  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null, privacy: 'friends' as Privacy, links: {} as Record<string, string> });
+  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null, privacy: 'friends' as Privacy, links: {} as Record<string, string>, platform: null as string | null });
   const [pw, setPw] = useState({ password: '', newPassword: '' });
   const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,7 @@ function EditInner() {
   useEffect(() => {
     if (!me || filled.current) return;
     filled.current = true;
-    setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url, privacy: me.privacy ?? 'friends', links: me.links ?? {} });
+    setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url, privacy: me.privacy ?? 'friends', links: me.links ?? {}, platform: me.platform ?? null });
   }, [me]);
 
   const pick = async (kind: 'avatar' | 'banner', file?: File) => {
@@ -137,6 +138,14 @@ function EditInner() {
           </div>
         </div>
       </motion.div>
+
+      <div className="card card-pad stack">
+        <div>
+          <div className="bold">Onde você joga</div>
+          <div className="small muted">Aparece no seu perfil e na lista de amigos. Toque de novo para tirar.</div>
+        </div>
+        <PlatformPicker value={form.platform} onChange={(v) => setForm((f) => ({ ...f, platform: v }))} />
+      </div>
 
       <div className="card card-pad stack">
         <div>

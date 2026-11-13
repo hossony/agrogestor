@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { body, ensureOwnerBadge, hashPassword, HttpError, route, str } from '@/lib/auth';
+import { body, cleanPlatform, ensureOwnerBadge, hashPassword, HttpError, route, str } from '@/lib/auth';
 import { newFriendCode } from '@/lib/code';
 import { one } from '@/lib/db';
 import { cookieOptions, COOKIE, signSession } from '@/lib/session';
 
 export const POST = route(async (req: Request) => {
-  const b = await body<{ name?: string; username?: string; password?: string }>(req);
+  const b = await body<{ name?: string; username?: string; password?: string; platform?: string }>(req);
   const name = str(b.name, 40);
   const username = str(b.username, 24).toLowerCase();
   const password = typeof b.password === 'string' ? b.password : '';
@@ -20,7 +20,7 @@ export const POST = route(async (req: Request) => {
   const badges = (total?.n ?? 0) < 100 ? ['pioneer'] : [];
   let user: { id: string } | null = null;
   for (let i = 0; i < 5 && !user; i++) {
-    user = await one<{ id: string }>('insert into users (code, username, name, password_hash, badges) values ($1, $2, $3, $4, $5) on conflict (code) do nothing returning id', [newFriendCode(), username, name, hash, badges]);
+    user = await one<{ id: string }>('insert into users (code, username, name, password_hash, badges, platform) values ($1, $2, $3, $4, $5, $6) on conflict (code) do nothing returning id', [newFriendCode(), username, name, hash, badges, cleanPlatform(b.platform)]);
   }
   if (!user) throw new HttpError(500, 'Não foi possível criar a conta agora. Tente de novo.');
   await ensureOwnerBadge(user.id, username);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { HttpError, requireUser, route } from '@/lib/auth';
+import { HttpError, isOwner, requireUser, route } from '@/lib/auth';
 import { tx } from '@/lib/db';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -12,8 +12,8 @@ export const DELETE = route(async (_req: Request, ctx: Ctx) => {
   const removed = await tx(async (c) => {
     const r = await c.query(
       `select c.post_id, 1 + (select count(*)::int from comments x where x.parent_id = c.id) as n
-       from comments c join posts p on p.id = c.post_id where c.id = $1 and (c.author_id = $2 or p.author_id = $2)`,
-      [id, me.id],
+       from comments c join posts p on p.id = c.post_id where c.id = $1 and (c.author_id = $2 or p.author_id = $2 or $3)`,
+      [id, me.id, isOwner(me)],
     );
     if (!r.rows.length) return null;
     const { post_id, n } = r.rows[0] as { post_id: string; n: number };

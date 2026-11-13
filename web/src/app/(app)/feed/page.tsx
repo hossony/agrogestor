@@ -58,7 +58,7 @@ export default function FeedPage() {
   }, [more, loading, page, load]);
 
   return (
-    <div className="two-col page-wide">
+    <div className="page">
       <div className="stack">
         <div className="page-head" style={{ marginBottom: 4 }}>
           <div>
@@ -139,27 +139,6 @@ export default function FeedPage() {
         )}
       </div>
 
-      <aside className="hide-narrow sticky stack">
-        <div className="card card-pad">
-          <div className="bold" style={{ marginBottom: 6 }}>
-            🔥 Como funciona o foguinho
-          </div>
-          <p className="small muted" style={{ margin: 0 }}>
-            O foguinho é o voto da comunidade. Quanto mais 🔥 uma postagem recebe nas primeiras horas, mais alto ela aparece em <b>Em alta</b>. As curtidas e os comentários também contam, mas pesam menos.
-          </p>
-        </div>
-        <div className="card card-pad">
-          <div className="bold" style={{ marginBottom: 6 }}>
-            🎮 Bora jogar?
-          </div>
-          <p className="small muted" style={{ margin: '0 0 10px' }}>
-            Chame um amigo para o seu servidor. Ele recebe o aviso na hora, até no celular.
-          </p>
-          <a href="/convites" className="btn btn-sm btn-soft">
-            Chamar para jogar
-          </a>
-        </div>
-      </aside>
     </div>
   );
 }

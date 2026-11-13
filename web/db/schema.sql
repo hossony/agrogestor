@@ -119,3 +119,63 @@ create index if not exists follows_followed on follows (followed_id);
 -- Selo verde: os 100 primeiros fazendeiros da plataforma (idempotente).
 update users set badges = array_append(badges, 'pioneer')
   where id in (select id from users order by created_at asc limit 100) and not ('pioneer' = any(badges));
+
+-- 2.4: plataforma, presença, banimento, edição e repost.
+alter table users add column if not exists platform text;
+alter table users add column if not exists last_seen_at timestamptz;
+alter table users add column if not exists banned_at timestamptz;
+alter table posts add column if not exists edited_at timestamptz;
+alter table posts add column if not exists repost_count int not null default 0;
+
+create table if not exists reposts (
+  user_id uuid not null references users(id) on delete cascade,
+  post_id uuid not null references posts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+create index if not exists reposts_user on reposts (user_id, created_at desc);
+
+-- Catálogo de máquinas do FS25 (editado pelo dono; imagens enviadas pelo painel).
+create table if not exists machine_catalog (
+  id uuid primary key default gen_random_uuid(),
+  brand text not null,
+  model text not null,
+  category text not null,
+  price int,
+  hp_min int,
+  hp_max int,
+  speed int,
+  width numeric,
+  capacity int,
+  weight int,
+  upkeep int,
+  image_url text,
+  notes text not null default '',
+  verified boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists machine_catalog_name on machine_catalog (lower(brand), lower(model));
+
+-- Catálogo inicial. Valores de guias da comunidade (nov/2024); "verified = false" = conferir no jogo.
+insert into machine_catalog (brand, model, category, price, hp_min, hp_max, speed, notes) values
+  ('Landini', 'REX 4 GT', 'Trator', 39500, 70, 112, 40, 'Trator pequeno, bom para pomares e vinhedos.'),
+  ('Challenger', 'MT600 Series', 'Trator', 58500, 160, 225, 40, ''),
+  ('Valtra', 'T Series', 'Trator', 168000, 210, 271, 50, ''),
+  ('Valtra', 'S Series', 'Trator', 254500, 280, 420, 50, ''),
+  ('John Deere', '6R Series (230-250)', 'Trator', 268000, 281, 301, 50, ''),
+  ('Deutz-Fahr', 'Series 8 TTV', 'Trator', 267000, 287, 287, 60, ''),
+  ('Fendt', '1000 Vario', 'Trator', null, null, null, 60, ''),
+  ('Fendt', '900 Vario', 'Trator', null, null, null, 60, ''),
+  ('Fendt', '700 Vario', 'Trator', null, null, null, 50, ''),
+  ('Massey Ferguson', '8S Series', 'Trator', null, null, null, 50, ''),
+  ('New Holland', 'T7 HD', 'Trator', null, null, null, 50, ''),
+  ('Case IH', 'Magnum', 'Trator', null, null, null, 50, ''),
+  ('Claas', 'Xerion', 'Trator', null, null, null, 50, ''),
+  ('John Deere', '8R Series', 'Trator', null, null, null, 50, ''),
+  ('Kubota', 'M7 Series', 'Trator', null, null, null, 50, ''),
+  ('Claas', 'Lexion 8000', 'Colheitadeira', null, null, null, 40, ''),
+  ('John Deere', 'X9', 'Colheitadeira', null, null, null, 40, ''),
+  ('New Holland', 'CR11', 'Colheitadeira', null, null, null, 40, ''),
+  ('Fendt', 'IDEAL', 'Colheitadeira', null, null, null, 40, '')
+on conflict do nothing;

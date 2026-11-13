@@ -16,9 +16,16 @@ export interface Me {
   badges: string[];
   privacy: 'public' | 'friends' | 'private';
   links: Record<string, string>;
+  platform: string | null;
 }
 
-export const ME_COLS = 'id, code, username, name, bio, avatar_url, banner_url, badges, privacy, links';
+export const ME_COLS = 'id, code, username, name, bio, avatar_url, banner_url, badges, privacy, links, platform';
+
+/** O dono da plataforma (selo preto) pode moderar tudo. */
+export const isOwner = (me: Pick<Me, 'badges'>) => me.badges.includes('owner');
+
+export const PLATFORMS = ['ps', 'xbox', 'pc'] as const;
+export const cleanPlatform = (v: unknown) => (typeof v === 'string' && (PLATFORMS as readonly string[]).includes(v) ? v : null);
 
 /** O dono (OWNER_USERNAME) ganha o selo preto na primeira vez que entra. */
 export async function ensureOwnerBadge(userId: string, username: string) {
@@ -35,7 +42,11 @@ export async function currentUser(): Promise<Me | null> {
   const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : (await cookies()).get(COOKIE)?.value;
   const id = await readSession(token);
   if (!id) return null;
-  return one<Me>(`select ${ME_COLS} from users where id = $1`, [id]);
+  // Conta suspensa pelo dono: a sessão deixa de valer.
+  const me = await one<Me>(`select ${ME_COLS} from users where id = $1 and banned_at is null`, [id]);
+  // Presença (online/offline): marca no máximo a cada 30 s para não pesar no banco.
+  if (me) q(`update users set last_seen_at = now() where id = $1 and (last_seen_at is null or last_seen_at < now() - interval '30 seconds')`, [id]).catch(() => {});
+  return me;
 }
 
 export class HttpError extends Error {

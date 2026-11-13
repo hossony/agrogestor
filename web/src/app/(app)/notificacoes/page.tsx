@@ -1,6 +1,6 @@
 'use client';
 
-import { Award, CheckCheck, Gamepad2, Heart, MessageCircle, UserPlus } from 'lucide-react';
+import { Award, CheckCheck, Gamepad2, Heart, MessageCircle, Repeat2, UserPlus } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { useEffect } from 'react';
@@ -23,6 +23,7 @@ const ICON: Record<string, React.ReactNode> = {
   invite_decline: <Gamepad2 size={13} color="var(--muted)" />,
   follow: <UserPlus size={13} color="var(--sell)" />,
   badge: <Award size={13} color="var(--harvest-ink)" />,
+  repost: <Repeat2 size={13} color="#11a36a" />,
 };
 
 function href(n: Notification) {

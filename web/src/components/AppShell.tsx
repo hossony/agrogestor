@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, ClipboardList, Flame, Gamepad2, LogOut, Settings, Sparkles, Tractor, UserRound, Users } from 'lucide-react';
+import { Bell, ClipboardList, Flame, Gamepad2, LogOut, Settings, Sparkles, Tractor, Trophy, UserRound, Users, Wrench } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -10,6 +10,7 @@ import type { Me } from '@/lib/auth';
 import { api } from '@/lib/client';
 import { Badges } from './Badges';
 import { LiveProvider, useLive } from './Live';
+import PresenceRail from './Presence';
 import { Avatar, SPRING } from './ui';
 
 type Item = { href: string; label: string; icon: React.ComponentType<{ size?: number }>; badge?: 'unread' | 'friends' | 'invites' | 'news' };
@@ -59,7 +60,14 @@ function Shell({ me, children }: { me: Me; children: React.ReactNode }) {
   const count = (b?: Item['badge']) => (b === 'unread' ? live.unread : b === 'friends' ? live.friend_requests : b === 'invites' ? live.invites : b === 'news' ? (path === '/novidades' ? 0 : news) : 0);
   const active = (href: string) => path === href || path.startsWith(href + '/') || (href === `/u/${me.code}` && path === '/perfil');
   const profile: Item = { href: `/u/${me.code}`, label: 'Perfil', icon: UserRound };
-  const SIDE: Item[] = [...MAIN, profile, { href: '/fazenda', label: 'Minha fazenda', icon: Tractor }, { href: '/novidades', label: 'Novidades', icon: Sparkles, badge: 'news' }];
+  const SIDE: Item[] = [
+    ...MAIN,
+    { href: '/ranking', label: 'Ranking', icon: Trophy },
+    profile,
+    { href: '/fazenda', label: 'Minha fazenda', icon: Tractor },
+    { href: '/novidades', label: 'Novidades', icon: Sparkles, badge: 'news' },
+    ...(me.badges.includes('owner') ? [{ href: '/admin/catalogo', label: 'Catálogo (dono)', icon: Wrench }] : []),
+  ];
 
   const logout = async () => {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
@@ -68,7 +76,7 @@ function Shell({ me, children }: { me: Me; children: React.ReactNode }) {
   };
 
   return (
-    <div className="shell">
+    <div className="shell" data-rail="true">
       <aside className="sidebar">
         <Link href="/feed" className="brand">
           <span className="brand-mark">🌾</span>
@@ -126,6 +134,9 @@ function Shell({ me, children }: { me: Me; children: React.ReactNode }) {
           <a href="/gestao" className="switch-btn" style={{ height: 34, padding: '0 10px', fontSize: 12.5 }} aria-label="Gestão da fazenda">
             <ClipboardList size={16} /> Gestão
           </a>
+          <Link href="/ranking" className="btn btn-icon" aria-label="Ranking">
+            <Trophy size={20} />
+          </Link>
           <Link href="/novidades" className="btn btn-icon" aria-label="Novidades" style={{ position: 'relative' }}>
             <Sparkles size={20} />
             {count('news') > 0 && <span className="dot" style={{ position: 'absolute', top: 6, right: 6, background: 'var(--fire)', width: 8, height: 8 }} />}
@@ -137,6 +148,8 @@ function Shell({ me, children }: { me: Me; children: React.ReactNode }) {
       </header>
 
       <main className="main">{children}</main>
+
+      <PresenceRail />
 
       <nav className="tabbar">
         <LayoutGroup id="tabs">

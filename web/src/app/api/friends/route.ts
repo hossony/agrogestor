@@ -2,18 +2,27 @@ import { NextResponse } from 'next/server';
 import { body, HttpError, requireUser, route, str } from '@/lib/auth';
 import { normalizeCode } from '@/lib/code';
 import { one, q } from '@/lib/db';
+import { farmTotals, type FarmSnapshot } from '@/lib/farm';
 import { notify } from '@/lib/notify';
+import { ONLINE } from '@/lib/queries';
 
-const COLS = `u.id, u.code, u.username, u.name, u.avatar_url, u.badges, u.bio, u.farm is not null as has_farm, u.farm->>'farmName' as farm_name`;
+const COLS = `u.id, u.code, u.username, u.name, u.avatar_url, u.badges, u.platform, u.banner_url, u.bio, u.farm is not null as has_farm, u.farm->>'farmName' as farm_name, ${ONLINE('u')} as online, u.last_seen_at`;
 
 export const GET = route(async () => {
   const me = await requireUser();
   const [friends, received, sent] = await Promise.all([
-    q(
-      `select ${COLS}, f.accepted_at as since from friendships f
-       join users u on u.id = case when f.requester_id = $1 then f.addressee_id else f.requester_id end
+    q<Record<string, unknown> & { farm: FarmSnapshot | null; privacy: string }>(
+      `select ${COLS}, u.farm, u.privacy, f.accepted_at as since from friendships f
+       join users u on u.id = case when f.requester_id = $1 then f.addressee_id else f.requester_id end and u.banned_at is null
        where f.status = 'accepted' and (f.requester_id = $1 or f.addressee_id = $1) order by u.name`,
       [me.id],
+    ).then((rows) =>
+      // Resumo para o cartão do amigo (patrimônio e máquinas), respeitando a fazenda privada.
+      rows.map(({ farm, privacy, ...u }) => {
+        const visible = farm && privacy !== 'private';
+        const t = visible ? farmTotals(farm) : null;
+        return { ...u, summary: t ? { worth: t.worth, currency: farm!.currency, machines: farm!.machines.length, area: t.area } : null };
+      }),
     ),
     q(`select ${COLS}, f.created_at as since from friendships f join users u on u.id = f.requester_id where f.addressee_id = $1 and f.status = 'pending' order by f.created_at desc`, [me.id]),
     q(`select ${COLS}, f.created_at as since from friendships f join users u on u.id = f.addressee_id where f.requester_id = $1 and f.status = 'pending' order by f.created_at desc`, [me.id]),

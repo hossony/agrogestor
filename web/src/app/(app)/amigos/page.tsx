@@ -1,17 +1,19 @@
 'use client';
 
-import { Check, Gamepad2, UserPlus, X } from 'lucide-react';
+import { Check, Gamepad2, Trophy, UserPlus, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import InviteDialog from '@/components/InviteDialog';
+import { PlatformIcon } from '@/components/Platform';
+import { PresenceAvatar } from '@/components/Presence';
 import { useLive } from '@/components/Live';
 import { Avatar, CopyCode, EASE, Empty, listItem, Spinner } from '@/components/ui';
 import { api, fetcher, timeAgo, useMe } from '@/lib/client';
 import type { UserLite } from '@/lib/types';
 
-type Friend = UserLite & { bio: string; has_farm: boolean; farm_name: string | null; since: string };
+type Friend = UserLite & { bio: string; has_farm: boolean; farm_name: string | null; since: string; online?: boolean };
 interface Lists {
   friends: Friend[];
   received: Friend[];
@@ -63,6 +65,9 @@ export default function FriendsPage() {
           <h1>Amigos</h1>
           <p>Adicione pelo ID e veja a fazenda dos seus amigos.</p>
         </div>
+        <Link href="/ranking" className="btn btn-harvest btn-sm">
+          <Trophy size={16} /> Ranking dos amigos
+        </Link>
       </div>
 
       <div className="card card-pad" style={{ background: 'linear-gradient(135deg, var(--surface), var(--primary-soft))' }}>
@@ -138,9 +143,12 @@ export default function FriendsPage() {
             {data?.friends.map((f, i) => (
               <motion.div key={f.id} layout className="card" variants={listItem} initial="hidden" animate="show" exit="exit" custom={i} whileHover={{ y: -3 }} transition={{ duration: 0.25 }}>
                 <Link href={`/u/${f.code}`} className="row card-pad" style={{ paddingBottom: 10 }}>
-                  <Avatar user={f} size={50} />
-                  <div className="grow">
-                    <div className="bold ellipsis">{f.name}</div>
+                  <PresenceAvatar user={f} online={Boolean(f.online)} size={50} />
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="row" style={{ gap: 5 }}>
+                      <span className="bold ellipsis">{f.name}</span>
+                      {f.platform && <PlatformIcon id={f.platform} size={14} />}
+                    </div>
                     <div className="tiny muted ellipsis">@{f.username}</div>
                     {f.farm_name && <div className="tiny ellipsis" style={{ color: 'var(--primary)', fontWeight: 700 }}>🏡 {f.farm_name}</div>}
                   </div>

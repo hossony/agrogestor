@@ -7,6 +7,7 @@ export interface UserLite {
   name: string;
   avatar_url: string | null;
   badges: string[];
+  platform?: string | null;
 }
 
 export interface Media {
@@ -24,11 +25,16 @@ export interface Post {
   like_count: number;
   fire_count: number;
   comment_count: number;
+  repost_count: number;
   created_at: string;
+  edited_at: string | null;
   author: UserLite;
   liked: boolean;
   fired: boolean;
+  reposted: boolean;
   mine: boolean;
+  /** Quando vem da aba Republicados. */
+  reposted_at?: string;
 }
 
 export interface Comment {

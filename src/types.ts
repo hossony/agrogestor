@@ -125,6 +125,8 @@ export interface Machine {
   category: string;
   ownership: 'proprio' | 'alugado' | 'leasing';
   photo?: string;
+  /** Máquina escolhida no catálogo do FS25 (site). */
+  catalogId?: string;
   value: number;
   hours: number;
   serviceAt: number;

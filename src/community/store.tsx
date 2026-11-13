@@ -39,7 +39,7 @@ interface Ctx extends Counts {
   sync: { enabled: boolean; last: string | null; error: string | null; busy: boolean };
   setUrl: (u: string) => void;
   login: (username: string, password: string) => Promise<void>;
-  register: (name: string, username: string, password: string) => Promise<void>;
+  register: (name: string, username: string, password: string, platform?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   setMe: (m: Me) => void;
   refresh: () => void;
@@ -155,10 +155,10 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (name: string, username: string, password: string) => {
+    async (name: string, username: string, password: string, platform?: string | null) => {
       const base = normalizeUrl(url);
       if (!base) throw new Error('Informe o endereço do site do AgroGestor.');
-      const r = await request<{ token: string }>({ url: base }, '/api/auth/register', { body: { name, username, password } });
+      const r = await request<{ token: string }>({ url: base }, '/api/auth/register', { body: { name, username, password, platform: platform ?? null } });
       await afterAuth(r.token, base);
     },
     [url, afterAuth],

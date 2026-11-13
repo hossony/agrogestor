@@ -1,16 +1,18 @@
 import * as Clipboard from 'expo-clipboard';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, Award, Bell, BellRing, Check, CheckCheck, ClipboardList, Copy, Flame, Gamepad2, ImagePlus, Lock, LogOut, Pencil, RefreshCw, Send, Sparkles, UserPlus, UserRound, Users, Video, X } from 'lucide-react-native';
+import { ArrowLeft, Award, Ban, Bell, ClipboardPaste, Link2, Smile, Trophy, BellRing, Check, CheckCheck, ClipboardList, Copy, Flame, Gamepad2, ImagePlus, Lock, LogOut, Pencil, RefreshCw, Send, Sparkles, UserPlus, UserRound, Users, Video, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Animated, BackHandler, FlatList, Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mediaUrl, request, shrinkImage, uploadMedia } from '../community/api';
+import { OnlineDot, PlatformIcon, platformLabel, PlatformPicker } from '../community/Platform';
 import { BADGES, canHaveLinks, LINK_SITES, PRIVACY, type Privacy } from '../community/badges';
 import type { FarmSnapshot } from '../community/farm';
 import { Target, useCommunity } from '../community/store';
-import { CATEGORIES, Changelog, Comment, Friend, Invite, Media, Notif, Post, Relation, timeAgo, UserLite } from '../community/types';
-import { Avatar, Badges, Chip, FarmView, Input, InviteSheet, PostCard, Sheet, Tabs } from '../community/ui';
+import { CATEGORIES, Changelog, Comment, EMOJIS, Friend, fullDate, Invite, Media, Notif, Post, RankRow, Relation, timeAgo, UserLite } from '../community/types';
+import { Avatar, Badges, Chip, FarmView, Input, InviteSheet, money, num, PostCard, RichText, Sheet, Tabs } from '../community/ui';
 import { Appear, Pressy } from '../motion';
 import { useStore } from '../store';
 import { c, font, radius } from '../theme';
@@ -75,6 +77,7 @@ function Connect() {
   const [name, setName] = useState(user?.name ?? '');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [platform, setPlatform] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const sun = useRef(new Animated.Value(0)).current;
@@ -87,7 +90,7 @@ function Connect() {
     setError('');
     try {
       if (mode === 'entrar') await login(username, password);
-      else await register(name, username, password);
+      else await register(name, username, password, platform);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -117,6 +120,12 @@ function Connect() {
           {mode === 'criar' ? <Input label="Nome" value={name} onChangeText={setName} placeholder="Como os amigos te chamam" /> : null}
           <Input label="Usuário" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} placeholder="ex.: joao.trator" />
           <Input label="Senha" value={password} onChangeText={setPassword} secureTextEntry placeholder="mínimo 6 caracteres" onSubmitEditing={submit} />
+          {mode === 'criar' ? (
+            <View style={{ gap: 6 }}>
+              <T v="label">Onde você joga? (opcional)</T>
+              <PlatformPicker value={platform} onChange={setPlatform} />
+            </View>
+          ) : null}
           <ErrorText text={error} />
           <Btn label={busy ? 'Conectando…' : mode === 'entrar' ? 'Entrar na comunidade' : 'Criar conta e entrar'} onPress={submit} disabled={busy || !username || !password} />
           <T v="small">Esta conta é a mesma do site e é diferente da conta local do app (a que guarda os seus saves neste aparelho).</T>
@@ -139,28 +148,61 @@ function Composer({ visible, onClose, onPosted }: { visible: boolean; onClose: (
   const [busy, setBusy] = useState(false);
   const uploading = items.some((i) => !i.media);
 
+  type Asset = { uri: string; type: Media['type']; width?: number; height?: number; file?: File; mimeType?: string | null; fileName?: string | null };
+  /** Reduz (se for foto) e envia; a miniatura mostra o progresso. */
+  const addAsset = (a: Asset) => {
+    if (!conn) return;
+    const key = Math.random().toString(36).slice(2);
+    setItems((l) => [...l, { key, uri: a.uri, type: a.type, progress: 3 }]);
+    (a.type === 'image' ? shrinkImage(a) : Promise.resolve({ ...a, mimeType: a.mimeType ?? undefined }))
+      .then((img) => uploadMedia(conn, { uri: img.uri, type: a.type, mimeType: img.mimeType, fileName: a.fileName, file: img.file, width: img.width, height: img.height }, (pct) => setItems((l) => l.map((i) => (i.key === key ? { ...i, progress: Math.max(i.progress, pct) } : i)))))
+      .then((media) => setItems((l) => l.map((i) => (i.key === key ? { ...i, media, progress: 100 } : i))))
+      .catch((e: Error) => {
+        setItems((l) => l.filter((i) => i.key !== key));
+        setError(e.message);
+      });
+  };
+
   const pick = async (kind: 'images' | 'videos', camera = false) => {
     if (!conn) return;
     setError('');
-    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: [kind], quality: 0.7, allowsMultipleSelection: kind === 'images' && !camera, selectionLimit: 6 - items.length, videoMaxDuration: 180 };
+    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: [kind], quality: 0.8, allowsMultipleSelection: kind === 'images' && !camera, selectionLimit: 6 - items.length, videoMaxDuration: 180 };
     if (camera) {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) return setError('Sem permissão para usar a câmera.');
     }
     const res = camera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
     if (res.canceled) return;
-    res.assets.slice(0, 6 - items.length).forEach((a) => {
-      const key = Math.random().toString(36).slice(2);
-      const type: Media['type'] = a.type === 'video' ? 'video' : 'image';
-      setItems((l) => [...l, { key, uri: a.uri, type, progress: 3 }]);
-      (type === 'image' ? shrinkImage({ uri: a.uri, width: a.width, height: a.height, file: (a as { file?: File }).file, mimeType: a.mimeType }) : Promise.resolve({ uri: a.uri, width: a.width, height: a.height, file: (a as { file?: File }).file, mimeType: a.mimeType ?? undefined }))
-        .then((img) => uploadMedia(conn, { uri: img.uri, type, mimeType: img.mimeType, fileName: a.fileName, file: img.file, width: img.width, height: img.height }, (pct) => setItems((l) => l.map((i) => (i.key === key ? { ...i, progress: Math.max(i.progress, pct) } : i)))))
-        .then((media) => setItems((l) => l.map((i) => (i.key === key ? { ...i, media, progress: 100 } : i))))
-        .catch((e: Error) => {
-          setItems((l) => l.filter((i) => i.key !== key));
-          setError(e.message);
-        });
-    });
+    res.assets.slice(0, 6 - items.length).forEach((a) => addAsset({ uri: a.uri, type: a.type === 'video' ? 'video' : 'image', width: a.width, height: a.height, file: (a as { file?: File }).file, mimeType: a.mimeType, fileName: a.fileName }));
+  };
+
+  /** Cola a imagem copiada (print da tela, foto copiada de outro app). */
+  const paste = async () => {
+    setError('');
+    try {
+      if (!(await Clipboard.hasImageAsync())) return setError('Não há imagem copiada. Tire um print ou copie uma foto e tente de novo.');
+      const img = await Clipboard.getImageAsync({ format: 'png' });
+      if (!img?.data) return setError('Não foi possível ler a imagem copiada.');
+      const dataUrl = img.data.startsWith('data:') ? img.data : `data:image/png;base64,${img.data}`;
+      if (Platform.OS === 'web') {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], `print-${Date.now()}.png`, { type: blob.type || 'image/png' });
+        return addAsset({ uri: URL.createObjectURL(file), type: 'image', file, mimeType: file.type, width: img.size?.width, height: img.size?.height });
+      }
+      const b64 = dataUrl.split(',')[1];
+      const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+      const out = new FileSystem.File(FileSystem.Paths.cache, `print-${Date.now()}.png`);
+      out.write(bytes);
+      addAsset({ uri: out.uri, type: 'image', mimeType: 'image/png', fileName: out.name, width: img.size?.width, height: img.size?.height });
+    } catch {
+      setError('Não foi possível colar a imagem.');
+    }
+  };
+
+  const [emojis, setEmojis] = useState(false);
+  const addLink = () => {
+    const url = typeof prompt === 'function' ? prompt('Cole o link:') : null;
+    if (url) setText((t) => `${t}${t && !/\s$/.test(t) ? ' ' : ''}${/^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`} `);
   };
 
   const submit = async () => {
@@ -187,7 +229,7 @@ function Composer({ visible, onClose, onPosted }: { visible: boolean; onClose: (
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Como está a fazenda hoje? Mostre a colheita, a máquina nova…"
+          placeholder="Como está a fazenda hoje? Cole um print, mostre a colheita, a máquina nova…"
           placeholderTextColor={c.faint}
           multiline
           maxLength={4000}
@@ -214,6 +256,17 @@ function Composer({ visible, onClose, onPosted }: { visible: boolean; onClose: (
           ))}
         </ScrollView>
       ) : null}
+      {emojis ? (
+        <Appear>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 6 }}>
+            {EMOJIS.map((e) => (
+              <Pressy key={e} accessibilityLabel={e} onPress={() => setText((t) => t + e)} scaleTo={0.8} style={{ width: '12.5%', alignItems: 'center', paddingVertical: 6 }}>
+                <Text style={{ fontSize: 22 }}>{e}</Text>
+              </Pressy>
+            ))}
+          </View>
+        </Appear>
+      ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
         {CATEGORIES.map((cat) => (
           <Chip key={cat.id} label={`${cat.emoji} ${cat.label}`} on={category === cat.id} onPress={() => setCategory(cat.id)} />
@@ -224,6 +277,15 @@ function Composer({ visible, onClose, onPosted }: { visible: boolean; onClose: (
         <Btn small kind="ghost" label="Foto" icon={<ImagePlus size={16} color={c.primary} />} onPress={() => pick('images')} disabled={items.length >= 6} />
         <Btn small kind="ghost" label="Vídeo" icon={<Video size={16} color="#FF5A1F" />} onPress={() => pick('videos')} disabled={items.length >= 6} />
         {Platform.OS !== 'web' ? <Btn small kind="ghost" label="Gravar" icon={<Video size={16} color={c.danger} />} onPress={() => pick('videos', true)} disabled={items.length >= 6} /> : null}
+        <Btn small kind="ghost" label="Colar" icon={<ClipboardPaste size={16} color={c.sell} />} onPress={paste} disabled={items.length >= 6} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Emojis" onPress={() => setEmojis((v) => !v)} style={{ padding: 8, borderRadius: 10, backgroundColor: emojis ? c.harvestSoft : 'transparent' }}>
+          <Smile size={19} color={c.harvestInk} />
+        </Pressable>
+        {Platform.OS === 'web' ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Adicionar link" onPress={addLink} style={{ padding: 8 }}>
+            <Link2 size={19} color={c.sell} />
+          </Pressable>
+        ) : null}
         <View style={{ flex: 1 }} />
         <Btn label={uploading ? 'Enviando…' : busy ? 'Publicando…' : 'Publicar'} icon={<Send size={15} color="#fff" />} onPress={submit} disabled={busy || uploading || (!text.trim() && !items.length)} />
       </View>
@@ -332,7 +394,7 @@ function FeedTab({ go }: { go: (v: View_) => void }) {
 /* ================= Postagem com comentários ================= */
 
 function PostScreen({ id, go }: { id: string; go: (v: View_) => void }) {
-  const { conn, version } = useCommunity();
+  const { conn, me, version } = useCommunity();
   const { data, setData, error } = useApi<{ post: Post; comments: Comment[] }>(`/api/posts/${id}`, [version]);
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
@@ -376,16 +438,18 @@ function PostScreen({ id, go }: { id: string; go: (v: View_) => void }) {
             <T style={{ fontWeight: '700', fontSize: 13 }}>{cm.author.name}</T>
             <Badges ids={cm.author.badges} max={2} />
           </View>
-          <T>{cm.body}</T>
+          <RichText text={cm.body} style={{ fontSize: 14.5, lineHeight: 21 }} />
         </View>
         <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 12, paddingTop: 4 }}>
-          <T v="small">{timeAgo(cm.created_at)}</T>
+          <T v="small">
+            {timeAgo(cm.created_at)} · {fullDate(cm.created_at)}
+          </T>
           <Pressable onPress={() => setReplyTo(parent)}>
             <T v="small" style={{ fontWeight: '700' }}>
               Responder
             </T>
           </Pressable>
-          {cm.mine || data.post.mine ? (
+          {cm.mine || data.post.mine || me?.badges?.includes('owner') ? (
             <Pressable onPress={() => del(cm)}>
               <T v="small" style={{ fontWeight: '700', color: c.danger }}>
                 Apagar
@@ -461,7 +525,78 @@ function CopyCode({ code }: { code: string }) {
   );
 }
 
+/** Ranking entre você e os amigos: patrimônio, máquinas, área e animais. */
+function RankingView({ go }: { go: (v: View_) => void }) {
+  const { version } = useCommunity();
+  const { data, reload } = useApi<RankRow[]>('/api/leaderboard', [version]);
+  const [by, setBy] = useState<'worth' | 'machines' | 'area' | 'animals'>('worth');
+  const rows = useMemo(() => (data ?? []).slice().sort((a, b) => Number(a.hidden) - Number(b.hidden) || b[by] - a[by]), [data, by]);
+  const MEDAL = ['🥇', '🥈', '🥉'];
+  const fmt = (r: RankRow) => (by === 'worth' ? money(r.worth, r.currency) : by === 'area' ? `${num(r.area, 1)} ha` : by === 'machines' ? `${num(r.machines)} máq.` : `${num(r.animals)} animais`);
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12, maxWidth: 760, width: '100%', alignSelf: 'center' }} refreshControl={<RefreshControl refreshing={false} onRefresh={reload} />}>
+      <Tabs
+        value={by}
+        onChange={setBy}
+        options={[
+          { value: 'worth', label: '💰 Patrimônio' },
+          { value: 'machines', label: '🚜 Máquinas' },
+          { value: 'area', label: '🌾 Área' },
+          { value: 'animals', label: '🐄 Animais' },
+        ]}
+      />
+      {!data ? <Spinner /> : null}
+      {data && rows.length <= 1 ? <Empty title="Ainda não tem ninguém para competir" hint="Adicione amigos pelo ID e publiquem as fazendas." /> : null}
+      {data && rows.length ? (
+        <Card pad={0} style={{ overflow: 'hidden' }}>
+          {rows.map((r, i) => (
+            <Appear key={r.id + by} index={i}>
+              <Pressable onPress={() => go({ kind: 'user', code: r.code })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderTopWidth: i ? 1 : 0, borderTopColor: c.line, backgroundColor: pressed ? c.surfaceAlt : r.me ? c.primarySoft : c.surface })}>
+                <Text style={{ width: 30, textAlign: 'center', fontFamily: font, fontWeight: '900', fontSize: i < 3 && !r.hidden ? 20 : 15, color: c.muted }}>{r.hidden ? '–' : MEDAL[i] ?? `${i + 1}º`}</Text>
+                <Avatar user={r} size={42} />
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <T style={{ fontWeight: '700', flexShrink: 1 }} numberOfLines={1}>
+                      {r.name}
+                      {r.me ? ' (você)' : ''}
+                    </T>
+                    <Badges ids={r.badges} max={2} />
+                    {r.platform ? <PlatformIcon id={r.platform} size={13} /> : null}
+                  </View>
+                  <T v="small" numberOfLines={1}>
+                    {r.hidden ? (r.me ? 'publique a sua fazenda no Perfil' : '🔒 privada ou não publicada') : `🏡 ${r.farmName}`}
+                  </T>
+                </View>
+                {r.hidden ? <Lock size={15} color={c.faint} /> : <Text style={{ fontFamily: font, fontWeight: '800', color: c.ink, fontVariant: ['tabular-nums'] }}>{fmt(r)}</Text>}
+              </Pressable>
+            </Appear>
+          ))}
+        </Card>
+      ) : null}
+    </ScrollView>
+  );
+}
+
 function FriendsTab({ go, invite }: { go: (v: View_) => void; invite: (u: UserLite) => void }) {
+  const [view, setView] = useState<'lista' | 'ranking'>('lista');
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, maxWidth: 760, width: '100%', alignSelf: 'center' }}>
+        <Tabs
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'lista', label: '🤝 Meus amigos' },
+            { value: 'ranking', label: '🏆 Ranking' },
+          ]}
+        />
+      </View>
+      {view === 'lista' ? <FriendsList go={go} invite={invite} /> : <RankingView go={go} />}
+    </View>
+  );
+}
+
+function FriendsList({ go, invite }: { go: (v: View_) => void; invite: (u: UserLite) => void }) {
   const { conn, me, version, refresh } = useCommunity();
   const { data, reload } = useApi<{ friends: Friend[]; received: Friend[]; sent: Friend[] }>('/api/friends', [version]);
   const [code, setCode] = useState('');
@@ -547,9 +682,22 @@ function FriendsTab({ go, invite }: { go: (v: View_) => void; invite: (u: UserLi
         <Appear key={f.id} index={i}>
           <Card style={{ gap: 10 }}>
             <Pressable onPress={() => go({ kind: 'user', code: f.code })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Avatar user={f} size={48} />
+              <View>
+                <Avatar user={f} size={48} />
+                <OnlineDot on={Boolean(f.online)} size={14} />
+              </View>
               <View style={{ flex: 1 }}>
-                <T style={{ fontWeight: '700' }}>{f.name}</T>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <T style={{ fontWeight: '700', flexShrink: 1 }} numberOfLines={1}>
+                    {f.name}
+                  </T>
+                  <Badges ids={f.badges} max={2} />
+                  {f.platform ? <PlatformIcon id={f.platform} size={14} /> : null}
+                </View>
+                <T v="small" style={{ color: f.online ? '#23a55a' : c.muted, fontWeight: f.online ? '700' : '400' }}>
+                  {f.online ? '● Online' : f.last_seen_at ? `visto há ${timeAgo(f.last_seen_at)}` : 'offline'}
+                  {f.summary ? ` · ${money(f.summary.worth, f.summary.currency)}` : ''}
+                </T>
                 <T v="small">@{f.username}</T>
                 {f.farm_name ? <T v="small" style={{ color: c.primary, fontWeight: '700' }}>🏡 {f.farm_name}</T> : null}
               </View>
@@ -708,7 +856,7 @@ function InvitesTab({ go, invite }: { go: (v: View_) => void; invite: (u: UserLi
 
 /* ================= Avisos ================= */
 
-const NOTIF_ICON: Record<string, string> = { like: '❤️', fire: '🔥', comment: '💬', reply: '💬', friend_request: '🤝', friend_accept: '🤝', invite: '🎮', invite_accept: '🎮', invite_decline: '🎮', follow: '👣', badge: '🎖️' };
+const NOTIF_ICON: Record<string, string> = { like: '❤️', fire: '🔥', comment: '💬', reply: '💬', friend_request: '🤝', friend_accept: '🤝', invite: '🎮', invite_accept: '🎮', invite_decline: '🎮', follow: '👣', badge: '🎖️', repost: '🔁' };
 
 function NotifsTab({ go, openTab }: { go: (v: View_) => void; openTab: (t: Tab) => void }) {
   const { conn, version, refresh } = useCommunity();
@@ -771,9 +919,9 @@ function NotifsTab({ go, openTab }: { go: (v: View_) => void; openTab: (t: Tab) 
 /* ================= Perfil ================= */
 
 interface Profile {
-  user: UserLite & { bio: string; banner_url: string | null; links: Record<string, string>; privacy: string };
+  user: UserLite & { bio: string; banner_url: string | null; links: Record<string, string>; privacy: string; online?: boolean; banned?: boolean };
   relation: Relation;
-  stats: { posts: number; friends: number; fires: number; followers: number };
+  stats: { posts: number; friends: number; fires: number; followers: number; reposts?: number };
   following: boolean;
   hasFarm: boolean;
   farm: FarmSnapshot | null;
@@ -892,11 +1040,11 @@ function SyncCard() {
 
 function EditProfile({ visible, onClose, onSaved }: { visible: boolean; onClose: () => void; onSaved: () => void }) {
   const { conn, me, setMe } = useCommunity();
-  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null, privacy: 'friends' as Privacy, links: {} as Record<string, string> });
+  const [form, setForm] = useState({ name: '', bio: '', avatar_url: null as string | null, banner_url: null as string | null, privacy: 'friends' as Privacy, links: {} as Record<string, string>, platform: null as string | null });
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    if (me && visible) setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url, privacy: me.privacy ?? 'friends', links: me.links ?? {} });
+    if (me && visible) setForm({ name: me.name, bio: me.bio, avatar_url: me.avatar_url, banner_url: me.banner_url, privacy: me.privacy ?? 'friends', links: me.links ?? {}, platform: me.platform ?? null });
   }, [me, visible]);
   if (!conn) return null;
 
@@ -951,6 +1099,10 @@ function EditProfile({ visible, onClose, onSaved }: { visible: boolean; onClose:
       <Input label="Nome" value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} maxLength={40} />
       <Input label="Bio" value={form.bio} onChangeText={(v) => setForm((f) => ({ ...f, bio: v }))} maxLength={280} multiline style={{ minHeight: 80, textAlignVertical: 'top' }} placeholder="Ex.: Produtor de soja em Riverbend, jogo todo sábado." />
       <View style={{ gap: 8 }}>
+        <T v="label">ONDE VOCÊ JOGA</T>
+        <PlatformPicker value={form.platform} onChange={(v) => setForm((f) => ({ ...f, platform: v }))} />
+      </View>
+      <View style={{ gap: 8 }}>
         <T v="label">PRIVACIDADE DA FAZENDA</T>
         {PRIVACY.map((p) => {
           const on = form.privacy === p.id;
@@ -983,8 +1135,8 @@ function EditProfile({ visible, onClose, onSaved }: { visible: boolean; onClose:
 function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_) => void; invite: (u: UserLite) => void; own?: boolean }) {
   const { conn, me, logout, version } = useCommunity();
   const { data, setData, reload, error } = useApi<Profile>(`/api/users/${encodeURIComponent(code)}`, [version]);
-  const [tab, setTab] = useState<'fazenda' | 'posts'>('fazenda');
-  const posts = useApi<{ posts: Post[] }>(tab === 'posts' ? `/api/posts?sort=new&author=${encodeURIComponent(code)}` : null, [version]);
+  const [tab, setTab] = useState<'fazenda' | 'posts' | 'reposts'>('fazenda');
+  const posts = useApi<{ posts: Post[] }>(tab === 'posts' ? `/api/posts?sort=new&author=${encodeURIComponent(code)}` : tab === 'reposts' ? `/api/posts?reposted_by=${encodeURIComponent(code)}` : null, [version, tab]);
   const [edit, setEdit] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [news, setNews] = useState(false);
@@ -1036,6 +1188,7 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <View style={{ marginTop: -46, borderRadius: 56, borderWidth: 5, borderColor: c.surface }}>
                 <Avatar user={user} size={92} />
+                {relation !== 'self' ? <OnlineDot on={Boolean(user.online)} size={22} /> : null}
               </View>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', paddingTop: 8 }}>
                 {relation === 'self' ? <Btn small kind="ghost" label="Editar perfil" icon={<Pencil size={14} color={c.ink} />} onPress={() => setEdit(true)} /> : null}
@@ -1046,6 +1199,22 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
                   </Pressy>
                 ) : null}
                 {isOwner && relation !== 'self' ? <Btn small kind="ghost" label="Selos" icon={<Award size={14} color={c.ink} />} onPress={() => setAdmin(true)} /> : null}
+                {isOwner && relation !== 'self' ? (
+                  <Btn
+                    small
+                    kind={user.banned ? 'ghost' : 'danger'}
+                    label={user.banned ? 'Reativar conta' : 'Suspender'}
+                    icon={<Ban size={14} color={user.banned ? c.ink : '#fff'} />}
+                    onPress={async () => {
+                      try {
+                        await request(conn, `/api/users/${user.code}/ban`, { body: { ban: !user.banned } });
+                        reload();
+                      } catch (e) {
+                        alert((e as Error).message);
+                      }
+                    }}
+                  />
+                ) : null}
                 {relation === 'friend' ? (
                   <>
                     <Pressy accessibilityRole="button" onPress={() => invite(user)} style={{ flexDirection: 'row', gap: 6, alignItems: 'center', backgroundColor: c.harvest, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 }}>
@@ -1060,9 +1229,22 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
                 {relation === 'received' ? <Btn small label="Aceitar pedido" onPress={() => friendAction('accept')} /> : null}
               </View>
             </View>
-            <T v="title" style={{ marginTop: 8, fontSize: 24 }}>
-              {user.name}
-            </T>
+            {user.banned ? (
+              <View style={{ marginTop: 8 }}>
+                <ErrorText text="Conta suspensa pela moderação. Só você (dono) vê este perfil." />
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <T v="title" style={{ fontSize: 24 }}>
+                {user.name}
+              </T>
+              {user.platform ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.surfaceAlt, borderRadius: 99, paddingVertical: 4, paddingHorizontal: 9 }}>
+                  <PlatformIcon id={user.platform} size={15} />
+                  <Text style={{ fontFamily: font, fontSize: 12, fontWeight: '700', color: c.ink }}>{platformLabel(user.platform)}</Text>
+                </View>
+              ) : null}
+            </View>
             {user.badges?.length ? <View style={{ marginTop: 6 }}><Badges ids={user.badges} size="md" /></View> : null}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               <T v="small">@{user.username}</T>
@@ -1103,6 +1285,7 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
         options={[
           { value: 'fazenda', label: '🏡 Fazenda' },
           { value: 'posts', label: '📝 Postagens' },
+          { value: 'reposts', label: `🔁 Republicados${stats.reposts ? ` (${stats.reposts})` : ''}` },
         ]}
       />
       {tab === 'fazenda' ? (
@@ -1129,7 +1312,7 @@ function ProfileScreen({ code, go, invite, own }: { code: string; go: (v: View_)
       ) : !posts.data ? (
         <Spinner />
       ) : posts.data.posts.length ? (
-        posts.data.posts.map((p, i) => <View key={p.id} style={{ marginBottom: 2 }}><PostCard post={p} index={i} onOpenPost={(x) => go({ kind: 'post', id: x.id })} onOpenUser={(c2) => c2 !== code && go({ kind: 'user', code: c2 })} onDeleted={posts.reload} /></View>)
+        posts.data.posts.map((p, i) => <View key={p.id} style={{ marginBottom: 2, gap: 6 }}>{tab === 'reposts' ? <T v="small" style={{ fontWeight: '700', marginLeft: 4 }}>🔁 Republicado</T> : null}<PostCard post={p} index={i} onOpenPost={(x) => go({ kind: 'post', id: x.id })} onOpenUser={(c2) => c2 !== code && go({ kind: 'user', code: c2 })} onDeleted={posts.reload} /></View>)
       ) : (
         <Empty title="Nenhuma postagem ainda" hint="" />
       )}

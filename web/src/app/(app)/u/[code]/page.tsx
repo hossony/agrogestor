@@ -1,6 +1,6 @@
 'use client';
 
-import { Award, Check, Gamepad2, Lock, Pencil, UserMinus, UserPlus } from 'lucide-react';
+import { Award, Ban, Check, Gamepad2, Lock, Pencil, UserMinus, UserPlus } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { Badges } from '@/components/Badges';
 import FarmView from '@/components/FarmView';
+import { PlatformIcon, platformLabel } from '@/components/Platform';
 import InviteDialog from '@/components/InviteDialog';
 import PostCard from '@/components/PostCard';
 import { Avatar, CopyCode, EASE_OUT, Empty, listItem, Modal, Segmented, SPRING, Spinner } from '@/components/ui';
@@ -17,9 +18,9 @@ import type { FarmSnapshot } from '@/lib/farm';
 import type { Post, Relation, UserLite } from '@/lib/types';
 
 interface Profile {
-  user: UserLite & { bio: string; banner_url: string | null; created_at: string; links: Record<string, string>; privacy: string };
+  user: UserLite & { bio: string; banner_url: string | null; created_at: string; links: Record<string, string>; privacy: string; online: boolean; banned: boolean };
   relation: Relation;
-  stats: { posts: number; friends: number; fires: number; followers: number };
+  stats: { posts: number; friends: number; fires: number; followers: number; reposts: number };
   following: boolean;
   hasFarm: boolean;
   farm: FarmSnapshot | null;
@@ -27,18 +28,18 @@ interface Profile {
   farmHidden: 'private' | 'friends' | null;
 }
 
-function Posts({ code }: { code: string }) {
+function Posts({ code, reposts }: { code: string; reposts?: boolean }) {
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [page, setPage] = useState(0);
   const [more, setMore] = useState(false);
   const load = useCallback(
     async (p: number) => {
-      const r = await api<{ posts: Post[]; more: boolean }>(`/api/posts?sort=new&author=${encodeURIComponent(code)}&page=${p}`);
+      const r = await api<{ posts: Post[]; more: boolean }>(reposts ? `/api/posts?reposted_by=${encodeURIComponent(code)}&page=${p}` : `/api/posts?sort=new&author=${encodeURIComponent(code)}&page=${p}`);
       setPosts((prev) => (p === 0 ? r.posts : [...(prev ?? []), ...r.posts]));
       setMore(r.more);
       setPage(p);
     },
-    [code],
+    [code, reposts],
   );
   useEffect(() => {
     load(0);
@@ -49,11 +50,16 @@ function Posts({ code }: { code: string }) {
         <Spinner />
       </div>
     );
-  if (!posts.length) return <Empty emoji="📭" title="Nenhuma postagem ainda" />;
+  if (!posts.length) return <Empty emoji={reposts ? '🔁' : '📭'} title={reposts ? 'Nada republicado ainda' : 'Nenhuma postagem ainda'} />;
   return (
     <div className="stack">
       {posts.map((p, i) => (
         <motion.div key={p.id} variants={listItem} initial="hidden" animate="show" custom={i % 12}>
+          {reposts && (
+            <div className="tiny muted row" style={{ gap: 5, margin: '0 4px 6px', fontWeight: 700 }}>
+              🔁 Republicado
+            </div>
+          )}
           <PostCard post={p} onDelete={() => setPosts((l) => l!.filter((x) => x.id !== p.id))} />
         </motion.div>
       ))}
@@ -122,7 +128,7 @@ export default function ProfilePage() {
   const { code } = useParams<{ code: string }>();
   const { data: me } = useMe();
   const { data, error, mutate } = useSWR<Profile>(`/api/users/${code}`, fetcher);
-  const [tab, setTab] = useState<'fazenda' | 'posts'>('fazenda');
+  const [tab, setTab] = useState<'fazenda' | 'posts' | 'reposts'>('fazenda');
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState<UserLite | null>(null);
   const [admin, setAdmin] = useState(false);
@@ -153,6 +159,17 @@ export default function ProfilePage() {
     setBusy(false);
   };
 
+  const toggleBan = async () => {
+    const ban = !user.banned;
+    if (!confirm(ban ? `Suspender a conta de ${user.name}? A pessoa não consegue mais entrar e as postagens e os comentários dela somem.` : `Reativar a conta de ${user.name}?`)) return;
+    try {
+      await api(`/api/users/${user.code}/ban`, { body: { ban } });
+      mutate();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
   const follow = async () => {
     // Resposta otimista: o número muda na hora.
     const next = !data.following;
@@ -176,8 +193,9 @@ export default function ProfilePage() {
         <div className="profile-head">
           <div className="row wrap" style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
             <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}>
-              <span className="profile-avatar avatar" style={{ display: 'inline-block', borderRadius: '50%' }}>
+              <span className="profile-avatar avatar" style={{ display: 'inline-block', borderRadius: '50%', position: 'relative', overflow: 'visible' }}>
                 <Avatar user={user} size={104} />
+                <span className="online-dot" data-on={user.online} style={{ width: 22, height: 22, right: 4, bottom: 4, borderWidth: 4 }} title={user.online ? 'Online' : 'Offline'} />
               </span>
             </motion.div>
             <div className="row wrap" style={{ paddingTop: 12 }}>
@@ -217,13 +235,30 @@ export default function ProfilePage() {
                 </button>
               )}
               {isOwner && relation !== 'self' && (
-                <button className="btn btn-ghost btn-sm" onClick={() => setAdmin(true)} title="Conceder selos (só o dono vê)">
-                  <Award size={15} /> Selos
-                </button>
+                <>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setAdmin(true)} title="Conceder selos (só o dono vê)">
+                    <Award size={15} /> Selos
+                  </button>
+                  <button className={`btn btn-sm ${user.banned ? 'btn-soft' : 'btn-danger'}`} onClick={toggleBan} title="Moderação (só o dono vê)">
+                    <Ban size={15} /> {user.banned ? 'Reativar conta' : 'Suspender'}
+                  </button>
+                </>
               )}
             </div>
           </div>
-          <h1 style={{ margin: '10px 0 0', fontSize: 26, letterSpacing: '-0.02em' }}>{user.name}</h1>
+          {user.banned && (
+            <div className="error" style={{ marginTop: 10 }}>
+              Conta suspensa pela moderação. Só você (dono) vê este perfil.
+            </div>
+          )}
+          <h1 className="row" style={{ margin: '10px 0 0', fontSize: 26, letterSpacing: '-0.02em', gap: 10 }}>
+            {user.name}
+            {user.platform && (
+              <span className="tag" style={{ fontSize: 12, gap: 5, padding: '3px 9px' }} title={`Joga no ${platformLabel(user.platform)}`}>
+                <PlatformIcon id={user.platform} size={15} /> {platformLabel(user.platform)}
+              </span>
+            )}
+          </h1>
           <div className="row wrap" style={{ gap: 8, marginTop: 6 }}>
             <Badges ids={user.badges} size="md" />
           </div>
@@ -269,6 +304,7 @@ export default function ProfilePage() {
         options={[
           { id: 'fazenda', label: '🏡 Fazenda' },
           { id: 'posts', label: '📝 Postagens' },
+          { id: 'reposts', label: `🔁 Republicados${stats.reposts ? ` (${stats.reposts})` : ''}` },
         ]}
       />
 
@@ -313,6 +349,7 @@ export default function ProfilePage() {
           </div>
         ))}
       {tab === 'posts' && <Posts code={user.code} />}
+      {tab === 'reposts' && <Posts code={user.code} reposts />}
 
       <InviteDialog friend={invite} onClose={() => setInvite(null)} />
       {isOwner && <BadgeAdmin user={user} open={admin} onClose={() => setAdmin(false)} onSaved={() => mutate()} />}

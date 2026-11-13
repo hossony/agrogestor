@@ -27,7 +27,19 @@ export const GET = route(async (req: Request) => {
   }
   if (sort === 'top') where.push(`p.created_at > now() - interval '30 days'`);
 
-  const order = sort === 'new' ? 'p.created_at desc' : sort === 'top' ? '(p.fire_count + p.like_count) desc, p.created_at desc' : HOT_ORDER;
+  // Aba "Republicados" do perfil: o que a pessoa republicou, do mais recente.
+  const repostedBy = sp.get('reposted_by');
+  if (repostedBy) {
+    params.push(repostedBy, PAGE + 1, page * PAGE);
+    const n = params.length;
+    const rows = await q<Post>(
+      `select * from (${POST_SELECT.replace('select p.id,', 'select rr.created_at as reposted_at, p.id,')} join reposts rr on rr.post_id = p.id join users ru on ru.id = rr.user_id where ru.code = $${n - 2}) x order by reposted_at desc limit $${n - 1} offset $${n}`,
+      params,
+    );
+    return NextResponse.json({ posts: rows.slice(0, PAGE), more: rows.length > PAGE });
+  }
+
+  const order = sort === 'new' ? 'p.created_at desc' : sort === 'top' ? '(p.fire_count + p.like_count + p.repost_count) desc, p.created_at desc' : HOT_ORDER;
   params.push(PAGE + 1, page * PAGE);
   const rows = await q<Post>(`${POST_SELECT} ${where.length ? 'where ' + where.join(' and ') : ''} order by ${order} limit $${params.length - 1} offset $${params.length}`, params);
   return NextResponse.json({ posts: rows.slice(0, PAGE), more: rows.length > PAGE });

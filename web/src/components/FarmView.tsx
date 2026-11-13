@@ -112,24 +112,27 @@ export default function FarmView({ farm, updatedAt }: { farm: FarmSnapshot; upda
 
         {tab === 'maquinas' &&
           (farm.machines.length ? (
-            farm.machines.map((m, i) => (
-              <div key={i} className="list-item">
-                <div className="icon-box">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {m.photo ? <img src={m.photo} alt="" /> : machineEmoji(m.category)}
-                </div>
-                <div className="grow">
-                  <div className="bold ellipsis">{m.name}</div>
-                  <div className="small muted">
-                    {[m.brand, m.category, m.powerCv ? `${m.powerCv} cv` : null, `${num(m.hours)} h`].filter(Boolean).join(' · ')}
+            <div className="machine-grid" style={{ padding: 12 }}>
+              {farm.machines.map((m, i) => (
+                <motion.div key={i} className="machine-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...EASE_OUT, delay: Math.min(i, 10) * 0.04 }}>
+                  <div className="machine-img">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {m.photo ? <img src={m.photo} alt={m.name} loading="lazy" /> : <span>{machineEmoji(m.category)}</span>}
                   </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div className="bold">{money(m.value, cur)}</div>
-                  {!m.owned && <span className="tag tag-blue">alugada</span>}
-                </div>
-              </div>
-            ))
+                  <div style={{ padding: '10px 12px 12px' }}>
+                    {m.brand && <div className="tiny muted bold">{m.brand}</div>}
+                    <div className="bold ellipsis" title={m.name}>
+                      {m.name}
+                    </div>
+                    <div className="tiny muted">{[m.category, m.powerCv ? `${m.powerCv} cv` : null, `${num(m.hours)} h`].filter(Boolean).join(' · ')}</div>
+                    <div className="row" style={{ justifyContent: 'space-between', marginTop: 6 }}>
+                      <span className="bold small">{money(m.value, cur)}</span>
+                      {!m.owned && <span className="tag tag-blue">alugada</span>}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           ) : (
             <div className="empty small">Nenhuma máquina cadastrada.</div>
           ))}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { HttpError, requireUser, route } from '@/lib/auth';
+import { HttpError, isOwner, requireUser, route } from '@/lib/auth';
 import { canHaveLinks } from '@/lib/badges';
 import { one } from '@/lib/db';
 import { relation, userByCode } from '@/lib/queries';
@@ -14,12 +14,13 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
   const me = await requireUser();
   const { code } = await ctx.params;
   const u = await userByCode(decodeURIComponent(code));
-  if (!u) throw new HttpError(404, 'Perfil não encontrado.');
+  if (!u || (u.banned_at && !isOwner(me))) throw new HttpError(404, 'Perfil não encontrado.');
   const rel = await relation(me.id, u.id);
   const canSeeFarm = rel === 'self' || u.privacy === 'public' || (u.privacy === 'friends' && rel === 'friend');
   const [stats, following] = await Promise.all([
     one<{ posts: number; friends: number; fires: number }>(
       `select (select count(*)::int from posts where author_id = $1) as posts,
+              (select count(*)::int from reposts where user_id = $1) as reposts,
               (select count(*)::int from friendships where status = 'accepted' and (requester_id = $1 or addressee_id = $1)) as friends,
               (select coalesce(sum(fire_count), 0)::int from posts where author_id = $1) as fires`,
       [u.id],
@@ -27,7 +28,7 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
     one('select 1 from follows where follower_id = $1 and followed_id = $2', [me.id, u.id]),
   ]);
   return NextResponse.json({
-    user: { id: u.id, code: u.code, username: u.username, name: u.name, avatar_url: u.avatar_url, banner_url: u.banner_url, bio: u.bio, created_at: u.created_at, badges: u.badges, links: canHaveLinks(u.badges) ? u.links : {}, privacy: u.privacy },
+    user: { id: u.id, code: u.code, username: u.username, name: u.name, avatar_url: u.avatar_url, banner_url: u.banner_url, bio: u.bio, created_at: u.created_at, badges: u.badges, links: canHaveLinks(u.badges) ? u.links : {}, privacy: u.privacy, platform: u.platform, online: u.online, banned: Boolean(u.banned_at) },
     relation: rel,
     stats: { ...stats, followers: u.follower_count },
     following: Boolean(following),

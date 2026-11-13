@@ -31,6 +31,17 @@ As imagens são reduzidas para no máximo 1600 px (WebP) no navegador antes do e
 - **Privacidade:** público, só amigos (padrão) ou privado. Vale para a fazenda e o patrimônio; as postagens continuam públicas.
 - **Seguir:** cada perfil mostra o número de seguidores. A lista de quem segue não aparece para ninguém.
 
+## Catálogo de máquinas do FS25 (painel do dono)
+
+Em **Catálogo (dono)**, na barra lateral do site, você cadastra e edita as máquinas do jogo: marca, modelo, categoria, preço, potência, velocidade, largura, capacidade, peso, manutenção e a **imagem** (enviada para o Vercel Blob). No app, em **Frota › Do catálogo FS25**, o jogador escolhe a máquina e o cadastro já vem preenchido, com a imagem. As máquinas aparecem com a imagem no perfil da fazenda.
+
+O catálogo começa com 19 máquinas. Os valores vieram de guias da comunidade (nov/2024) e estão marcados como **“conferir”**: confira no jogo, corrija e marque “Valores conferidos”.
+
+## Moderação (dono)
+
+- **Apagar publicação ou comentário de qualquer pessoa:** menu ⋯ da publicação ou ícone de lixeira no comentário.
+- **Suspender conta:** botão **Suspender** no perfil da pessoa. Ela não consegue mais entrar, e as publicações e os comentários dela somem do feed (sem serem apagados). **Reativar conta** desfaz.
+
 ## Notas de atualização
 
 Ficam em `src/data/changelog.json` e aparecem em **/novidades** (site) e no botão ✨ do AgroSocial (app). A cada atualização, acrescente uma entrada no topo com a versão, a data, o título e os itens (`"where": "site" | "app" | "ambos"`).

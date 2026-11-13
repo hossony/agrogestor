@@ -1,12 +1,14 @@
 'use client';
 
-import { Heart, MessageCircle, MoreHorizontal, Share2, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Pencil, Repeat2, Share2, ShieldAlert, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { api, timeAgo } from '@/lib/client';
+import { api, timeAgo, useMe } from '@/lib/client';
 import { categoryOf, Media, Post } from '@/lib/types';
 import { Badges } from './Badges';
+import { PlatformIcon } from './Platform';
+import { fullDate, RichText } from './RichText';
 import { Avatar, Count, EASE, Lightbox, SPRING } from './ui';
 
 function Burst({ emoji }: { emoji: string }) {
@@ -62,6 +64,12 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
   const [burst, setBurst] = useState<{ kind: string; n: number } | null>(null);
   const [menu, setMenu] = useState(false);
   const [shared, setShared] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(post.body);
+  const [saving, setSaving] = useState(false);
+  const { data: me } = useMe();
+  const owner = Boolean(me?.badges.includes('owner'));
+  const canMenu = p.mine || owner;
   const cat = categoryOf(p.category);
   const hot = p.fire_count >= 5;
 
@@ -97,15 +105,57 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
 
   const remove = async () => {
     setMenu(false);
-    if (!confirm('Apagar esta postagem? Não dá para desfazer.')) return;
+    const msg = p.mine ? 'Apagar esta postagem? Não dá para desfazer.' : `Moderação: apagar a postagem de ${p.author.name}? Não dá para desfazer.`;
+    if (!confirm(msg)) return;
     await api(`/api/posts/${p.id}`, { method: 'DELETE' });
     onDelete?.();
   };
 
-  const body = p.body && (
-    <div className="post-body" style={{ fontSize: p.body.length < 90 && !p.media.length ? 19 : undefined, fontWeight: p.body.length < 90 && !p.media.length ? 600 : undefined }}>
-      {p.body}
+  const repost = async () => {
+    const prev = p;
+    const on = !p.reposted;
+    update({ ...p, reposted: on, repost_count: Math.max(0, p.repost_count + (on ? 1 : -1)) });
+    if (on) setBurst({ kind: 'repost', n: Date.now() });
+    try {
+      const r = await api<{ reposted: boolean; repost_count: number }>(`/api/posts/${p.id}/repost`, { method: 'POST' });
+      update({ ...prev, reposted: r.reposted, repost_count: r.repost_count });
+    } catch (e) {
+      update(prev);
+      alert((e as Error).message);
+    }
+  };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      const next = await api<Post>(`/api/posts/${p.id}`, { method: 'PATCH', body: { body: draft } });
+      update(next);
+      setEditing(false);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+    setSaving(false);
+  };
+
+  const big = p.body.length < 90 && !p.media.length;
+  const body = editing ? (
+    <div className="post-body stack" style={{ gap: 8 }}>
+      <textarea className="textarea" value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} autoFocus style={{ minHeight: 100 }} />
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <button className="btn btn-sm btn-ghost" onClick={() => (setEditing(false), setDraft(p.body))}>
+          Cancelar
+        </button>
+        <button className="btn btn-sm" onClick={saveEdit} disabled={saving || (!draft.trim() && !p.media.length)}>
+          Salvar edição
+        </button>
+      </div>
     </div>
+  ) : (
+    p.body && (
+      <div className="post-body" style={{ fontSize: big ? 19 : undefined, fontWeight: big ? 600 : undefined }}>
+        <RichText text={p.body} />
+      </div>
+    )
   );
 
   return (
@@ -120,6 +170,7 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
               {p.author.name}
             </Link>
             <Badges ids={p.author.badges} max={3} />
+            {p.author.platform && <PlatformIcon id={p.author.platform} size={14} />}
             {hot && (
               <motion.span className="hot-badge" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING}>
                 🔥 Em alta
@@ -127,13 +178,22 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
             )}
           </div>
           <div className="row tiny muted" style={{ gap: 6 }}>
-            <span>@{p.author.username}</span>·<span>{timeAgo(p.created_at)}</span>·
+            <span>@{p.author.username}</span>·
+            <time dateTime={p.created_at} title={fullDate(p.created_at)}>
+              {timeAgo(p.created_at)} · {fullDate(p.created_at)}
+            </time>
+            {p.edited_at && (
+              <span className="faint" title={`Editada em ${fullDate(p.edited_at)}`}>
+                (editada)
+              </span>
+            )}
+            ·
             <span className="post-cat">
               {cat.emoji} {cat.label}
             </span>
           </div>
         </div>
-        {p.mine && (
+        {canMenu && (
           <div style={{ position: 'relative' }}>
             <button className="btn btn-icon btn-sm" aria-label="Opções" onClick={() => setMenu((m) => !m)}>
               <MoreHorizontal size={18} />
@@ -148,8 +208,13 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
                   exit={{ opacity: 0, y: -6, scale: 0.96 }}
                   transition={EASE}
                 >
+                  {p.mine && (
+                    <button className="btn btn-sm btn-block" style={{ justifyContent: 'flex-start', background: 'transparent', color: 'var(--ink)' }} onClick={() => (setMenu(false), setDraft(p.body), setEditing(true))}>
+                      <Pencil size={15} /> Editar postagem
+                    </button>
+                  )}
                   <button className="btn btn-sm btn-block" style={{ justifyContent: 'flex-start', background: 'transparent', color: 'var(--danger)' }} onClick={remove}>
-                    <Trash2 size={15} /> Apagar postagem
+                    {p.mine ? <Trash2 size={15} /> : <ShieldAlert size={15} />} {p.mine ? 'Apagar postagem' : 'Apagar (moderação)'}
                   </button>
                 </motion.div>
               )}
@@ -158,7 +223,7 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
         )}
       </div>
 
-      {linkToPost && p.body ? <Link href={`/post/${p.id}`}>{body}</Link> : body}
+      {linkToPost && p.body && !editing ? <Link href={`/post/${p.id}`}>{body}</Link> : body}
       <MediaGrid media={p.media} />
 
       <div className="post-actions">
@@ -185,6 +250,21 @@ export default function PostCard({ post, onChange, onDelete, linkToPost = true }
           <span className="react" style={{ cursor: 'default' }}>
             <MessageCircle size={18} />
             <Count value={p.comment_count} />
+          </span>
+        )}
+        {!p.mine && (
+          <motion.button className="react" data-kind="repost" data-on={p.reposted} onClick={repost} whileTap={{ scale: 0.88 }} style={{ position: 'relative' }} aria-label="Republicar" title="Republicar no seu perfil">
+            <motion.span key={`r${p.reposted}`} initial={p.reposted ? { rotate: -180, scale: 0.5 } : false} animate={{ rotate: 0, scale: 1 }} transition={SPRING} style={{ display: 'inline-flex' }}>
+              <Repeat2 size={18} />
+            </motion.span>
+            <Count value={p.repost_count} />
+            {burst?.kind === 'repost' && <Burst key={burst.n} emoji="🔁" />}
+          </motion.button>
+        )}
+        {p.mine && p.repost_count > 0 && (
+          <span className="react" style={{ cursor: 'default' }} title="Republicações">
+            <Repeat2 size={18} />
+            <Count value={p.repost_count} />
           </span>
         )}
         <span className="grow" />

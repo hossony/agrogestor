@@ -10,6 +10,7 @@ export interface UserLite {
   name: string;
   avatar_url: string | null;
   badges: string[];
+  platform?: string | null;
 }
 
 export interface Me extends UserLite {
@@ -17,6 +18,7 @@ export interface Me extends UserLite {
   banner_url: string | null;
   privacy: 'public' | 'friends' | 'private';
   links: Record<string, string>;
+  platform: string | null;
 }
 
 export interface Changelog {
@@ -39,11 +41,15 @@ export interface Post {
   like_count: number;
   fire_count: number;
   comment_count: number;
+  repost_count: number;
   created_at: string;
+  edited_at: string | null;
   author: UserLite;
   liked: boolean;
   fired: boolean;
+  reposted: boolean;
   mine: boolean;
+  reposted_at?: string;
 }
 
 export interface Comment {
@@ -84,7 +90,47 @@ export interface Notif {
   invite_status?: string | null;
 }
 
-export type Friend = UserLite & { bio: string; has_farm: boolean; farm_name: string | null; since: string };
+export type Friend = UserLite & {
+  bio: string;
+  has_farm: boolean;
+  farm_name: string | null;
+  since: string;
+  online?: boolean;
+  last_seen_at?: string | null;
+  summary?: { worth: number; currency: string; machines: number; area: number } | null;
+};
+
+export interface RankRow {
+  id: string;
+  code: string;
+  name: string;
+  avatar_url: string | null;
+  badges: string[];
+  platform: string | null;
+  me: boolean;
+  hidden: boolean;
+  farmName: string | null;
+  currency: string;
+  worth: number;
+  machines: number;
+  area: number;
+  animals: number;
+}
+
+/** Data e hora completas: "13 nov 2026, 14:32". */
+export const fullDate = (iso: string) => {
+  const d = new Date(iso);
+  const M = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  return `${String(d.getDate()).padStart(2, '0')} ${M[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+/** Separa o texto em pedaços normais e links (para deixar os links clicáveis). */
+export function splitLinks(text: string): { text: string; url?: string }[] {
+  const re = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]"'])/g;
+  return text.split(re).map((p, i) => (i % 2 ? { text: p.replace(/^https?:\/\/(www\.)?/, ''), url: p } : { text: p })).filter((x) => x.text);
+}
+
+export const EMOJIS = ['🌾', '🚜', '🌱', '🌽', '🥔', '🌻', '🍇', '🐄', '🐖', '🐑', '🐔', '🐝', '🥛', '🧀', '🚛', '🏡', '💧', '☀️', '🌧️', '🔥', '❤️', '👍', '👏', '🙌', '💪', '😂', '😍', '😎', '🤩', '😮', '😅', '😢', '🤔', '🙏', '👀', '💯', '✅', '⭐', '🏆', '🎉', '💰', '📈', '🎮', '🕹️', '🖥️', '📸', '🎥', '🗺️', '🛠️', '🤝'];
 
 export const CATEGORIES: { id: string; label: string; emoji: string }[] = [
   { id: 'geral', label: 'Geral', emoji: '🌾' },

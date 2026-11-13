@@ -53,3 +53,25 @@ test('links sociais viram URLs https', async () => {
   assert.equal(canHaveLinks(['pioneer']), false);
   assert.equal(canHaveLinks(['creator']), true);
 });
+
+test('o catálogo de máquinas do app é o mesmo arquivo do site', () => {
+  assert.equal(readFileSync('src/community/catalog.ts', 'utf8'), readFileSync('web/src/lib/catalog.ts', 'utf8'));
+});
+
+test('catálogo: limpa valores do painel e monta a potência', async () => {
+  const { cleanCatalogInput, hpLabel } = await import('../src/community/catalog');
+  const m = cleanCatalogInput({ brand: ' Fendt ', model: '1000 Vario', category: 'Trator', price: '450.000', hp_min: '396', hp_max: 517, image_url: 'javascript:x', verified: true });
+  assert.equal(m.brand, 'Fendt');
+  assert.equal(m.price, 450000);
+  assert.equal(m.image_url, null);
+  assert.equal(cleanCatalogInput({ category: 'Nave espacial' }).category, 'Outro');
+  assert.equal(hpLabel({ hp_min: 396, hp_max: 517 }), '396–517 cv');
+  assert.equal(hpLabel({ hp_min: null, hp_max: 112 }), '112 cv');
+});
+
+test('links clicáveis no texto das postagens', async () => {
+  const { splitLinks } = await import('../src/community/types');
+  const parts = splitLinks('Veja https://youtube.com/@canal, top!');
+  assert.equal(parts[1].url, 'https://youtube.com/@canal');
+  assert.equal(parts[2].text, ', top!');
+});

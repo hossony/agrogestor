@@ -6,8 +6,9 @@ import { cookieOptions, COOKIE, signSession } from '@/lib/session';
 export const POST = route(async (req: Request) => {
   const b = await body<{ username?: string; password?: string }>(req);
   const username = str(b.username, 40).toLowerCase().replace(/^@/, '');
-  const user = await one<{ id: string; password_hash: string }>('select id, password_hash from users where username = $1', [username]);
+  const user = await one<{ id: string; password_hash: string; banned_at: string | null }>('select id, password_hash, banned_at from users where username = $1', [username]);
   if (!user || !(await checkPassword(String(b.password ?? ''), user.password_hash))) throw new HttpError(401, 'Usuário ou senha incorretos.');
+  if (user.banned_at) throw new HttpError(403, 'Esta conta foi suspensa pela moderação do AgroGestor.');
   await ensureOwnerBadge(user.id, username);
   // O site usa o cookie; o app do celular guarda o token e manda no cabeçalho Authorization.
   const token = await signSession(user.id);

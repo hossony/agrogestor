@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api } from '@/lib/client';
+import { PlatformPicker } from './Platform';
 import { EASE, EASE_OUT, Spinner } from './ui';
 
 const FEATURES = [
@@ -16,6 +17,7 @@ const FEATURES = [
 export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
   const [form, setForm] = useState({ name: '', username: '', password: '', confirm: '' });
+  const [platform, setPlatform] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const reg = mode === 'register';
@@ -27,7 +29,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     if (reg && form.password !== form.confirm) return setError('As senhas não conferem.');
     setBusy(true);
     try {
-      await api(reg ? '/api/auth/register' : '/api/auth/login', { body: form });
+      await api(reg ? '/api/auth/register' : '/api/auth/login', { body: { ...form, platform } });
       router.replace(reg ? '/perfil?novo=1' : '/feed');
       router.refresh();
     } catch (err) {
@@ -99,6 +101,14 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 Repita a senha
               </label>
               <input id="confirm" className="input" type="password" value={form.confirm} onChange={set('confirm')} autoComplete="new-password" required minLength={6} />
+            </div>
+          )}
+          {reg && (
+            <div>
+              <span className="label">
+                Onde você joga? <span className="faint">(opcional)</span>
+              </span>
+              <PlatformPicker value={platform} onChange={setPlatform} />
             </div>
           )}
           <AnimatePresence>

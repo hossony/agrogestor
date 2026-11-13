@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badges } from '@/components/Badges';
+import { fullDate, RichText } from '@/components/RichText';
 import PostCard from '@/components/PostCard';
 import { Avatar, EASE, Empty, listItem, Spinner } from '@/components/ui';
 import { useLive } from '@/components/Live';
@@ -68,10 +69,14 @@ function CommentItem({ c, onReply, onDelete, canDelete }: { c: Comment; onReply?
             {c.author.name}
             <Badges ids={c.author.badges} max={2} />
           </Link>
-          <div>{c.body}</div>
+          <div>
+            <RichText text={c.body} />
+          </div>
         </div>
         <div className="row" style={{ gap: 14, padding: '4px 12px' }}>
-          <span className="tiny faint">{timeAgo(c.created_at)}</span>
+          <span className="tiny faint" title={fullDate(c.created_at)}>
+            {timeAgo(c.created_at)} · {fullDate(c.created_at)}
+          </span>
           {onReply && (
             <button className="link-btn" onClick={onReply}>
               Responder
@@ -97,6 +102,8 @@ export default function PostPage() {
   const [error, setError] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const first = useRef(true);
+  const { data: meData } = useMe();
+  const owner = Boolean(meData?.badges.includes('owner'));
 
   useEffect(() => {
     api<{ post: Post; comments: Comment[] }>(`/api/posts/${id}`)
@@ -147,13 +154,13 @@ export default function PostPage() {
         <AnimatePresence initial={false}>
           {tree.map(({ c, replies }, i) => (
             <motion.div key={c.id} className="stack" style={{ gap: 10 }} variants={listItem} initial={first.current ? 'hidden' : { opacity: 0, y: 8 }} animate="show" exit="exit" custom={i}>
-              <CommentItem c={c} canDelete={c.mine || post.mine} onReply={() => setReplyTo(replyTo === c.id ? null : c.id)} onDelete={() => del(c)} />
+              <CommentItem c={c} canDelete={c.mine || post.mine || owner} onReply={() => setReplyTo(replyTo === c.id ? null : c.id)} onDelete={() => del(c)} />
               {(replies.length > 0 || replyTo === c.id) && (
                 <div className="comment-replies">
                   <AnimatePresence initial={false}>
                     {replies.map((r) => (
                       <motion.div key={r.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={EASE}>
-                        <CommentItem c={r} canDelete={r.mine || post.mine} onReply={() => setReplyTo(c.id)} onDelete={() => del(r)} />
+                        <CommentItem c={r} canDelete={r.mine || post.mine || owner} onReply={() => setReplyTo(c.id)} onDelete={() => del(r)} />
                       </motion.div>
                     ))}
                   </AnimatePresence>

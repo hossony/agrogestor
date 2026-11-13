@@ -1,6 +1,6 @@
-import { Gamepad2, Heart, MessageCircle, MoreHorizontal, Share2, Trash2, X } from 'lucide-react-native';
+import { Gamepad2, Heart, MessageCircle, MoreHorizontal, Pencil, Repeat2, Share2, ShieldAlert, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Appear, Pressy } from '../motion';
 import { c, font, radius } from '../theme';
@@ -10,7 +10,8 @@ import { Conn, mediaUrl, request } from './api';
 import { sortBadges } from './badges';
 import { farmTotals, type FarmSnapshot } from './farm';
 import { useCommunity } from './store';
-import { categoryOf, Media, Post, timeAgo, UserLite } from './types';
+import { categoryOf, fullDate, Media, Post, splitLinks, timeAgo, UserLite } from './types';
+import { PlatformIcon } from './Platform';
 
 const nativeDriver = Platform.OS !== 'web';
 export const num = (v: number, d = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -181,13 +182,35 @@ export function MediaGrid({ media, conn }: { media: Media[]; conn: Conn }) {
 
 /* ---------- Postagem ---------- */
 
+/** Texto com links clicáveis. */
+export function RichText({ text, style }: { text: string; style?: object }) {
+  return (
+    <Text style={[{ fontFamily: font, color: c.ink }, style]}>
+      {splitLinks(text).map((part, i) =>
+        part.url ? (
+          <Text key={i} style={{ color: c.sell, fontWeight: '600', textDecorationLine: 'underline' }} onPress={() => Linking.openURL(part.url!).catch(() => {})}>
+            {part.text.length > 60 ? `${part.text.slice(0, 60)}…` : part.text}
+          </Text>
+        ) : (
+          <Text key={i}>{part.text}</Text>
+        ),
+      )}
+    </Text>
+  );
+}
+
 export function PostCard({ post, onOpenPost, onOpenUser, onDeleted, index = 0 }: { post: Post; onOpenPost?: (p: Post) => void; onOpenUser: (code: string) => void; onDeleted?: () => void; index?: number }) {
-  const { conn } = useCommunity();
+  const { conn, me } = useCommunity();
   const [p, setP] = useState(post);
   const [menu, setMenu] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(post.body);
+  const [busy, setBusy] = useState(false);
+  const spin = useRef(new Animated.Value(0)).current;
   useEffect(() => setP(post), [post]);
   if (!conn) return null;
   const cat = categoryOf(p.category);
+  const owner = Boolean(me?.badges?.includes('owner'));
 
   const react = async (kind: 'like' | 'fire') => {
     const key = kind === 'like' ? 'liked' : 'fired';
@@ -203,7 +226,42 @@ export function PostCard({ post, onOpenPost, onOpenUser, onDeleted, index = 0 }:
     }
   };
 
+  const repost = async () => {
+    const prev = p;
+    const on = !p.reposted;
+    setP({ ...p, reposted: on, repost_count: Math.max(0, p.repost_count + (on ? 1 : -1)) });
+    if (on) {
+      spin.setValue(0);
+      Animated.timing(spin, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: nativeDriver }).start();
+    }
+    try {
+      const r = await request<{ reposted: boolean; repost_count: number }>(conn, `/api/posts/${p.id}/repost`, { method: 'POST' });
+      setP((cur) => ({ ...cur, reposted: r.reposted, repost_count: r.repost_count }));
+    } catch (e) {
+      setP(prev);
+      alert((e as Error).message);
+    }
+  };
+
+  const saveEdit = async () => {
+    setBusy(true);
+    try {
+      setP(await request<Post>(conn, `/api/posts/${p.id}`, { method: 'PATCH', body: { body: draft } }));
+      setEditing(false);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+    setBusy(false);
+  };
+
+  const remove = async () => {
+    setMenu(false);
+    await request(conn, `/api/posts/${p.id}`, { method: 'DELETE' }).catch(() => {});
+    onDeleted?.();
+  };
+
   const short = p.body.length < 90 && !p.media.length;
+  const repostColor = '#11a36a';
   return (
     <Appear index={index}>
       <Card pad={0} style={{ overflow: 'hidden' }}>
@@ -217,45 +275,65 @@ export function PostCard({ post, onOpenPost, onOpenUser, onDeleted, index = 0 }:
                 {p.author.name}
               </T>
               <Badges ids={p.author.badges} max={3} />
+              {p.author.platform ? <PlatformIcon id={p.author.platform} size={14} /> : null}
               {p.fire_count >= 5 ? <Badge label="🔥 Em alta" tone="red" /> : null}
             </View>
             <T v="small" numberOfLines={1}>
-              @{p.author.username} · {timeAgo(p.created_at)} · {cat.emoji} {cat.label}
+              @{p.author.username} · {cat.emoji} {cat.label}
+            </T>
+            <T v="small" numberOfLines={1} style={{ fontSize: 11.5 }}>
+              {timeAgo(p.created_at)} · {fullDate(p.created_at)}
+              {p.edited_at ? ' · (editada)' : ''}
             </T>
           </Pressable>
-          {p.mine ? (
+          {p.mine || owner ? (
             <Pressable accessibilityLabel="Opções" hitSlop={8} onPress={() => setMenu((m) => !m)}>
               <MoreHorizontal size={20} color={c.muted} />
             </Pressable>
           ) : null}
         </View>
         {menu ? (
-          <View style={{ alignItems: 'flex-end', paddingHorizontal: 14, paddingTop: 6 }}>
-            <Btn
-              small
-              kind="danger"
-              label="Apagar postagem"
-              icon={<Trash2 size={14} color="#fff" />}
-              onPress={async () => {
-                setMenu(false);
-                await request(conn, `/api/posts/${p.id}`, { method: 'DELETE' }).catch(() => {});
-                onDeleted?.();
-              }}
-            />
-          </View>
+          <Appear>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, paddingHorizontal: 14, paddingTop: 8 }}>
+              {p.mine ? <Btn small kind="ghost" label="Editar" icon={<Pencil size={14} color={c.ink} />} onPress={() => (setMenu(false), setDraft(p.body), setEditing(true))} /> : null}
+              <Btn small kind="danger" label={p.mine ? 'Apagar' : 'Apagar (moderação)'} icon={p.mine ? <Trash2 size={14} color="#fff" /> : <ShieldAlert size={14} color="#fff" />} onPress={remove} />
+            </View>
+          </Appear>
         ) : null}
-        {p.body ? (
+        {editing ? (
+          <View style={{ paddingHorizontal: 14, paddingTop: 10, gap: 8 }}>
+            <TextInput value={draft} onChangeText={setDraft} multiline maxLength={4000} autoFocus style={{ fontFamily: font, fontSize: 15, color: c.ink, borderWidth: 1, borderColor: c.primary, borderRadius: 12, padding: 10, minHeight: 90, textAlignVertical: 'top' }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+              <Btn small kind="ghost" label="Cancelar" onPress={() => setEditing(false)} />
+              <Btn small label={busy ? 'Salvando…' : 'Salvar edição'} onPress={saveEdit} disabled={busy || (!draft.trim() && !p.media.length)} />
+            </View>
+          </View>
+        ) : p.body ? (
           <Pressable disabled={!onOpenPost} onPress={() => onOpenPost?.(p)} style={{ paddingHorizontal: 14, paddingTop: 10 }}>
-            <Text style={{ fontFamily: font, color: c.ink, fontSize: short ? 18 : 15, fontWeight: short ? '600' : '400', lineHeight: short ? 25 : 22 }}>{p.body}</Text>
+            <RichText text={p.body} style={{ fontSize: short ? 18 : 15, fontWeight: short ? '600' : '400', lineHeight: short ? 25 : 22 }} />
           </Pressable>
         ) : null}
         <MediaGrid media={p.media} conn={conn} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, padding: 8 }}>
           <ReactBtn kind="fire" on={p.fired} count={p.fire_count} onPress={() => react('fire')} />
           <ReactBtn kind="like" on={p.liked} count={p.like_count} onPress={() => react('like')} />
-          <Pressy accessibilityRole="button" accessibilityLabel="Comentários" disabled={!onOpenPost} onPress={() => onOpenPost?.(p)} scaleTo={0.9} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12 }}>
+          <Pressy accessibilityRole="button" accessibilityLabel="Comentários" disabled={!onOpenPost} onPress={() => onOpenPost?.(p)} scaleTo={0.9} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 10 }}>
             <MessageCircle size={18} color={c.muted} />
             <Text style={{ fontFamily: font, fontWeight: '700', color: c.muted }}>{p.comment_count}</Text>
+          </Pressy>
+          <Pressy
+            accessibilityRole="button"
+            accessibilityLabel="Republicar"
+            accessibilityState={{ selected: p.reposted }}
+            disabled={p.mine}
+            onPress={repost}
+            scaleTo={0.88}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 99, backgroundColor: p.reposted ? '#DDF3E8' : 'transparent' }}
+          >
+            <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['-180deg', '0deg'] }) }] }}>
+              <Repeat2 size={18} color={p.reposted ? repostColor : c.muted} />
+            </Animated.View>
+            <Text style={{ fontFamily: font, fontWeight: '700', color: p.reposted ? repostColor : c.muted }}>{p.repost_count}</Text>
           </Pressy>
           <View style={{ flex: 1 }} />
           <Pressable accessibilityLabel="Compartilhar" hitSlop={8} style={{ padding: 8 }} onPress={() => Share.share({ message: `${conn.url}/post/${p.id}` }).catch(() => {})}>
@@ -489,17 +567,37 @@ export function FarmView({ farm, updatedAt }: { farm: FarmSnapshot; updatedAt?: 
               )
             : <T v="small" style={{ paddingTop: 12 }}>Nenhum campo cadastrado.</T>)}
         {tab === 'maquinas' &&
-          (farm.machines.length
-            ? farm.machines.map((m, i) =>
-                row(
-                  `m${i}`,
-                  m.photo ? <Image source={{ uri: m.photo }} style={{ width: 40, height: 40, borderRadius: 12 }} /> : <Text style={{ fontSize: 20 }}>{MACHINE.find(([r]) => r.test(m.category))?.[1] ?? '🛠️'}</Text>,
-                  m.name,
-                  [m.brand, m.category, m.powerCv ? `${m.powerCv} cv` : null, `${num(m.hours)} h`].filter(Boolean).join(' · '),
-                  <T style={{ fontWeight: '700' }}>{money(m.value, cur)}</T>,
-                ),
-              )
-            : <T v="small" style={{ paddingTop: 12 }}>Nenhuma máquina cadastrada.</T>)}
+          (farm.machines.length ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, paddingTop: 10 }}>
+              {farm.machines.map((m, i) => (
+                <View key={`m${i}`} style={{ width: '50%', padding: 5 }}>
+                  <Appear index={i}>
+                    <View style={{ borderRadius: 14, borderWidth: 1, borderColor: c.line, overflow: 'hidden', backgroundColor: c.surface }}>
+                      <View style={{ aspectRatio: 4 / 3, backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+                        {m.photo ? <Image source={{ uri: m.photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : <Text style={{ fontSize: 34 }}>{MACHINE.find(([r]) => r.test(m.category))?.[1] ?? '🛠️'}</Text>}
+                      </View>
+                      <View style={{ padding: 9, gap: 1 }}>
+                        {m.brand ? (
+                          <Text style={{ fontFamily: font, fontSize: 11, fontWeight: '700', color: c.muted }} numberOfLines={1}>
+                            {m.brand}
+                          </Text>
+                        ) : null}
+                        <Text style={{ fontFamily: font, fontSize: 13.5, fontWeight: '800', color: c.ink }} numberOfLines={1}>
+                          {m.name}
+                        </Text>
+                        <T v="small" numberOfLines={1} style={{ fontSize: 11.5 }}>
+                          {[m.category, m.powerCv ? `${m.powerCv} cv` : null, `${num(m.hours)} h`].filter(Boolean).join(' · ')}
+                        </T>
+                        <Text style={{ fontFamily: font, fontSize: 13, fontWeight: '800', color: c.ink, marginTop: 3 }}>{money(m.value, cur)}</Text>
+                      </View>
+                    </View>
+                  </Appear>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <T v="small" style={{ paddingTop: 12 }}>Nenhuma máquina cadastrada.</T>
+          ))}
         {tab === 'animais' &&
           (farm.animals.length
             ? farm.animals.map((a, i) =>

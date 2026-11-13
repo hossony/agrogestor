@@ -6,14 +6,18 @@ import { Comment, Invite, Post, Relation, UserLite } from './types';
 export const FRIEND_IDS = `(select case when f.requester_id = $1 then f.addressee_id else f.requester_id end
   from friendships f where f.status = 'accepted' and (f.requester_id = $1 or f.addressee_id = $1))`;
 
-export const lite = (prefix: string) => `json_build_object('id', ${prefix}.id, 'code', ${prefix}.code, 'username', ${prefix}.username, 'name', ${prefix}.name, 'avatar_url', ${prefix}.avatar_url, 'badges', ${prefix}.badges)`;
+export const lite = (prefix: string) => `json_build_object('id', ${prefix}.id, 'code', ${prefix}.code, 'username', ${prefix}.username, 'name', ${prefix}.name, 'avatar_url', ${prefix}.avatar_url, 'badges', ${prefix}.badges, 'platform', ${prefix}.platform)`;
 
-export const POST_SELECT = `select p.id, p.body, p.category, p.media, p.like_count, p.fire_count, p.comment_count, p.created_at,
+/** Online = visto nos últimos 90 segundos (o app e o site consultam o servidor a cada 6 s). */
+export const ONLINE = (prefix: string) => `(${prefix}.last_seen_at > now() - interval '90 seconds')`;
+
+export const POST_SELECT = `select p.id, p.body, p.category, p.media, p.like_count, p.fire_count, p.comment_count, p.repost_count, p.created_at, p.edited_at,
   ${lite('u')} as author,
   exists(select 1 from post_reactions r where r.post_id = p.id and r.user_id = $1 and r.kind = 'like') as liked,
   exists(select 1 from post_reactions r where r.post_id = p.id and r.user_id = $1 and r.kind = 'fire') as fired,
+  exists(select 1 from reposts rp where rp.post_id = p.id and rp.user_id = $1) as reposted,
   (p.author_id = $1) as mine
-  from posts p join users u on u.id = p.author_id`;
+  from posts p join users u on u.id = p.author_id and u.banned_at is null`;
 
 /** Ordenação "Em alta", no estilo do Reddit: foguinhos pesam mais, e o tempo puxa para baixo. */
 export const HOT_ORDER = `(log(greatest(p.fire_count * 2 + p.like_count + p.comment_count, 1)) + extract(epoch from p.created_at - timestamptz '2025-01-01') / 45000) desc`;
@@ -25,7 +29,7 @@ export async function getPost(me: string, id: string): Promise<Post | null> {
 export async function getComments(me: string, postId: string): Promise<Comment[]> {
   return q<Comment>(
     `select c.id, c.post_id, c.parent_id, c.body, c.created_at, ${lite('u')} as author, (c.author_id = $1) as mine
-     from comments c join users u on u.id = c.author_id where c.post_id = $2 order by c.created_at asc limit 500`,
+     from comments c join users u on u.id = c.author_id and u.banned_at is null where c.post_id = $2 order by c.created_at asc limit 500`,
     [me, postId],
   );
 }
@@ -54,8 +58,8 @@ export async function getInvite(me: string, id: string): Promise<Invite | null> 
 }
 
 export async function userByCode(code: string) {
-  return one<UserLite & { bio: string; banner_url: string | null; farm: unknown; farm_updated_at: string | null; created_at: string; privacy: string; links: Record<string, string>; follower_count: number }>(
-    'select id, code, username, name, avatar_url, badges, bio, banner_url, farm, farm_updated_at, created_at, privacy, links, follower_count from users where code = $1 or username = lower($1)',
+  return one<UserLite & { bio: string; banner_url: string | null; farm: unknown; farm_updated_at: string | null; created_at: string; privacy: string; links: Record<string, string>; follower_count: number; banned_at: string | null; online: boolean }>(
+    `select id, code, username, name, avatar_url, badges, platform, bio, banner_url, farm, farm_updated_at, created_at, privacy, links, follower_count, banned_at, ${ONLINE('users')} as online from users where code = $1 or username = lower($1)`,
     [code],
   );
 }
