@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["node_modules", "dist", "desktop"]
+  "exclude": ["node_modules", "dist", "dist-gestao", "desktop", "web"]
 }
