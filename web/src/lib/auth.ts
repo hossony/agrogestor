@@ -47,6 +47,8 @@ export function route<A extends unknown[]>(fn: (...args: A) => Promise<Response>
     } catch (e) {
       if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
       console.error(e);
+      // Falta de variável de ambiente: mostra qual é, para facilitar a configuração na Vercel.
+      if (e instanceof Error && /não configurado/.test(e.message)) return NextResponse.json({ error: `Servidor sem configuração: ${e.message} Adicione em Settings › Environment Variables na Vercel e faça um novo deploy.` }, { status: 500 });
       return NextResponse.json({ error: 'Algo deu errado no servidor. Tente de novo em instantes.' }, { status: 500 });
     }
   };
