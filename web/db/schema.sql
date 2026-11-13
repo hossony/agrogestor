@@ -92,3 +92,21 @@ create table if not exists push_subscriptions (
   created_at timestamptz not null default now()
 );
 create index if not exists push_user on push_subscriptions (user_id);
+
+-- Saves completos do app de gestão (celular, Windows e /gestao no site).
+-- O id vem do app; a versão mais recente (updated_at) vence.
+create table if not exists saves (
+  user_id uuid not null references users(id) on delete cascade,
+  id text not null,
+  name text not null default '',
+  farm_name text not null default '',
+  map text not null default '',
+  map_name text not null default '',
+  mode text not null default 'novo',
+  data jsonb,
+  deleted boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+create index if not exists saves_user on saves (user_id, updated_at desc);

@@ -10,6 +10,12 @@ A versão web do AgroGestor: tudo o que o app tem (em **/gestao**) e mais a part
 
 Feito em Next.js 16 (App Router) + React 19, animações com Motion (curvas ease-in-out e molas suaves).
 
+## Sincronização com o app (celular e Windows)
+
+O app de gestão entra com a **mesma conta do site** e guarda os saves na tabela `saves` do banco (rotas `/api/saves`). Celular, Windows e `/gestao` ficam iguais: cada edição sobe em poucos segundos e os outros aparelhos baixam a cada 20 s (ou ao voltar para o app). A versão editada por último vence; um save apagado some em todos. Sem internet, o app continua funcionando com a cópia local e sincroniza depois.
+
+No celular, o endereço do site vem de `EXPO_PUBLIC_API_URL` (defina no `eas.json` antes de gerar o APK) ou é digitado na tela de entrada (“Configurar endereço do site”). Contas antigas só do aparelho podem ser ligadas em Ajustes › Sincronização com o site.
+
 ## Serviços gratuitos (sem cartão, sem cobrança surpresa)
 
 | O quê | Serviço | Plano grátis |

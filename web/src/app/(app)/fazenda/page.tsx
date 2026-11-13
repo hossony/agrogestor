@@ -10,9 +10,9 @@ import { api, fetcher, timeAgo, useMe } from '@/lib/client';
 import { snapshotFromSave, type FarmSnapshot } from '@/lib/farm';
 
 /**
- * Publica a fazenda no perfil. Os saves vêm do app de gestão aberto neste
- * navegador (/gestao guarda tudo no localStorage do mesmo site) ou de um
- * backup colado do app do celular/Windows (Ajustes › Copiar backup).
+ * Publica a fazenda no perfil. Os saves vêm da conta (sincronizados pelo app
+ * do celular, do Windows e por /gestao), do localStorage deste navegador ou de
+ * um backup colado (Ajustes › Copiar backup).
  */
 
 interface LocalSave {
@@ -23,6 +23,7 @@ interface LocalSave {
   mapName: string;
   updatedAt: string;
   owner: string;
+  cloud?: boolean;
 }
 
 const LAST = 'ag:save-publicado';
@@ -49,7 +50,17 @@ export default function FarmPage() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
-    setSaves(readLocalSaves());
+    const local = readLocalSaves();
+    setSaves(local);
+    api<{ saves: (Omit<LocalSave, 'owner'> & { deleted: boolean })[] }>('/api/saves')
+      .then(({ saves: remote }) => {
+        const live = remote.filter((r) => !r.deleted);
+        const gone = new Set(remote.filter((r) => r.deleted).map((r) => r.id));
+        const fromCloud = live.map((r) => ({ ...r, owner: 'sua conta', cloud: true }));
+        const onlyHere = local.filter((l) => !gone.has(l.id) && !live.some((r) => r.id === l.id));
+        setSaves([...fromCloud, ...onlyHere].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+      })
+      .catch(() => {});
     try {
       setLast(localStorage.getItem(LAST));
     } catch {}
@@ -74,7 +85,17 @@ export default function FarmPage() {
     setBusy(null);
   };
 
-  const publishSave = (s: LocalSave) => {
+  const publishSave = async (s: LocalSave) => {
+    if (s.cloud) {
+      setBusy(s.id);
+      try {
+        const r = await api<{ data: unknown }>(`/api/saves/${s.id}`);
+        return publish(r.data, s.id, s.id);
+      } catch (e) {
+        setBusy(null);
+        return setMsg({ ok: false, text: (e as Error).message });
+      }
+    }
     const raw = localStorage.getItem(`agrogestor:save:${s.id}`);
     if (!raw) return setMsg({ ok: false, text: 'Não encontrei os dados desse save. Abra-o no app de gestão e tente de novo.' });
     publish(JSON.parse(raw), s.id, s.id);
@@ -117,12 +138,12 @@ export default function FarmPage() {
       </AnimatePresence>
 
       <section>
-        <div className="section-title">Saves deste navegador</div>
+        <div className="section-title">Seus saves</div>
         {saves === null ? (
           <Spinner />
         ) : saves.length === 0 ? (
           <div className="card">
-            <Empty emoji="💾" title="Nenhum save neste navegador">
+            <Empty emoji="💾" title="Nenhum save ainda">
               Crie ou abra um save em <a href="/gestao" style={{ color: 'var(--primary)', fontWeight: 700 }}>Gestão da fazenda</a>, ou cole um backup do celular aqui embaixo.
             </Empty>
           </div>
@@ -137,7 +158,7 @@ export default function FarmPage() {
                     {last === s.id && <span className="tag tag-green" style={{ marginLeft: 8 }}>no perfil</span>}
                   </div>
                   <div className="small muted">
-                    {MAP_NAMES[s.map] ?? (s.mapName || 'Outro mapa')} · conta local {s.owner} · editado {timeAgo(s.updatedAt)}
+                    {MAP_NAMES[s.map] ?? (s.mapName || 'Outro mapa')} · {s.cloud ? 'sincronizado' : `só neste navegador (${s.owner})`} · editado {timeAgo(s.updatedAt)}
                   </div>
                 </div>
                 <button className={`btn btn-sm ${last === s.id ? 'btn-soft' : ''}`} disabled={busy !== null} onClick={() => publishSave(s)}>

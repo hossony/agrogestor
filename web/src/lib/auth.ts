@@ -1,6 +1,6 @@
 import 'server-only';
 import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { one } from './db';
 import { COOKIE, readSession } from './session';
@@ -19,7 +19,9 @@ export const hashPassword = (p: string) => bcrypt.hash(p, 10);
 export const checkPassword = (p: string, h: string) => bcrypt.compare(p, h);
 
 export async function currentUser(): Promise<Me | null> {
-  const id = await readSession((await cookies()).get(COOKIE)?.value);
+  // O app (celular/Windows/gestão) manda "Authorization: Bearer <token>"; o site usa o cookie.
+  const bearer = (await headers()).get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const id = await readSession(bearer ?? (await cookies()).get(COOKIE)?.value);
   if (!id) return null;
   return one<Me>('select id, code, username, name, bio, avatar_url, banner_url from users where id = $1', [id]);
 }

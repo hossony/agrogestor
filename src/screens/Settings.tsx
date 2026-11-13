@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { Copy, Upload } from 'lucide-react-native';
+import { Cloud, CloudOff, Copy, RefreshCw, Upload } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { emptyData } from '../data/demo';
@@ -22,10 +22,11 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 export default function Settings() {
-  const { data, setSettings, replaceAll, logout, user, currentSave, closeSave, changePassword } = useStore();
+  const { data, setSettings, replaceAll, logout, user, currentSave, closeSave, changePassword, cloud, syncNow, linkCloud, setServerUrl } = useStore();
   const confirm = useConfirm();
   const st = data.settings;
-  const [sheet, setSheet] = useState<'farm' | 'period' | 'restore' | 'password' | null>(null);
+  const [sheet, setSheet] = useState<'farm' | 'period' | 'restore' | 'password' | 'link' | null>(null);
+  const [linkMsg, setLinkMsg] = useState('');
   const [message, setMessage] = useState('');
   const [pwMsg, setPwMsg] = useState('');
 
@@ -95,8 +96,33 @@ export default function Settings() {
         </View>
       </Section>
 
+      <Section title="Sincronização com o site" right={cloud.linked ? <Btn small kind="ghost" label={cloud.state === 'syncing' ? 'Sincronizando…' : 'Sincronizar agora'} icon={<RefreshCw size={14} color={c.ink} />} onPress={() => syncNow()} /> : undefined}>
+        {cloud.linked ? (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {cloud.state === 'offline' || cloud.state === 'error' ? <CloudOff size={18} color={c.danger} /> : <Cloud size={18} color={c.primary} />}
+              <T style={{ fontWeight: '600', flexShrink: 1 }}>
+                {cloud.state === 'syncing' ? 'Sincronizando…' : cloud.state === 'offline' ? 'Sem conexão' : cloud.state === 'error' ? 'Não sincronizou' : 'Saves iguais no celular, no computador e no site'}
+              </T>
+            </View>
+            {cloud.message ? <T v="small" style={{ marginTop: 6, color: c.danger }}>{cloud.message}</T> : null}
+            <Line label="Site" value={cloud.url.replace(/^https?:\/\//, '')} />
+            {cloud.code ? <Line label="Seu ID de amigo" value={cloud.code} /> : null}
+            {cloud.lastSync ? <Line label="Última sincronização" value={new Date(cloud.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} /> : null}
+          </>
+        ) : (
+          <>
+            <T v="small">Esta conta está só neste aparelho. Entre com a sua conta do site para os saves ficarem iguais aqui, no computador e na versão web (feed, amigos e fazenda no perfil). Os saves desta conta sobem para a nuvem.</T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+              <Btn small label="Conectar à conta do site" icon={<Cloud size={14} color="#fff" />} onPress={() => setSheet('link')} />
+            </View>
+            {linkMsg ? <T v="small" style={{ marginTop: 10, color: c.danger }}>{linkMsg}</T> : null}
+          </>
+        )}
+      </Section>
+
       <Section title="Backup">
-        <T v="small">Os dados ficam guardados só neste dispositivo. Para levar do celular para o computador, copie o backup aqui e restaure lá. As imagens e os vídeos não entram no backup.</T>
+        <T v="small">{cloud.linked ? 'Os saves já sincronizam com o site. O backup é uma cópia extra em texto.' : 'Os dados ficam guardados só neste dispositivo. Para levar do celular para o computador, copie o backup aqui e restaure lá.'} As imagens e os vídeos não entram no backup.</T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
           <Btn small label="Copiar backup" icon={<Copy size={14} color="#fff" />} onPress={copyBackup} />
           <Btn small kind="ghost" label="Restaurar backup" icon={<Upload size={14} color={c.ink} />} onPress={() => setSheet('restore')} />
@@ -138,6 +164,28 @@ export default function Settings() {
             setPwMsg('Senha trocada.');
           } catch (e: any) {
             setPwMsg(e?.message ?? 'Não foi possível trocar a senha.');
+          }
+          setSheet(null);
+        }}
+      />
+      <FormSheet
+        visible={sheet === 'link'}
+        title="Conectar à conta do site"
+        fields={[
+          { key: 'url', label: 'Endereço do site', type: 'text', required: true, placeholder: 'https://seu-agrogestor.vercel.app' },
+          { key: 'username', label: 'Usuário do site', type: 'text', required: true },
+          { key: 'password', label: 'Senha do site', type: 'password', required: true, hint: 'Não tem conta no site? Crie lá primeiro.' },
+        ]}
+        initial={{ url: cloud.url, username: user?.username ?? '', password: '' }}
+        submitLabel="Conectar"
+        onClose={() => setSheet(null)}
+        onSubmit={async (v) => {
+          setLinkMsg('');
+          try {
+            await setServerUrl(v.url);
+            await linkCloud(v.username, v.password);
+          } catch (e: any) {
+            setLinkMsg(e?.message ?? 'Não foi possível conectar.');
           }
           setSheet(null);
         }}

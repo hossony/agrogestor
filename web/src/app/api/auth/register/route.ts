@@ -20,7 +20,9 @@ export const POST = route(async (req: Request) => {
     user = await one<{ id: string }>('insert into users (code, username, name, password_hash) values ($1, $2, $3, $4) on conflict (code) do nothing returning id', [newFriendCode(), username, name, hash]);
   }
   if (!user) throw new HttpError(500, 'Não foi possível criar a conta agora. Tente de novo.');
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE, await signSession(user.id), cookieOptions);
+  const token = await signSession(user.id);
+  const me = await one('select id, code, username, name from users where id = $1', [user.id]);
+  const res = NextResponse.json({ ok: true, token, user: me });
+  res.cookies.set(COOKIE, token, cookieOptions);
   return res;
 });

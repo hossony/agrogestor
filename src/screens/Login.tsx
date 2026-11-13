@@ -9,7 +9,8 @@ type Mode = 'entrar' | 'cadastrar';
 
 /** Entrada e cadastro de contas locais (ficam só neste aparelho). */
 export default function Login() {
-  const { login, register } = useStore();
+  const { login, register, cloud, setServerUrl } = useStore();
+  const [server, setServer] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>('entrar');
   const [name, setName] = useState('');
   const [user, setUser] = useState('');
@@ -48,6 +49,7 @@ export default function Login() {
     setBusy(true);
     setError('');
     try {
+      if (server !== null && server.trim() !== cloud.url) await setServerUrl(server);
       if (mode === 'entrar') await login(user, password, remember);
       else await register({ name, username: user, password, confirm }, remember);
     } catch (e: any) {
@@ -121,8 +123,19 @@ export default function Login() {
           </Animated.View>
 
           <Text style={{ fontFamily: font, color: c.sidebarInk, fontSize: 12.5, textAlign: 'center', marginTop: 16, lineHeight: 18 }}>
-            A conta e os dados ficam guardados só neste aparelho. Não há envio para a internet.
+            {cloud.url || (server ?? '').trim()
+              ? 'Use a mesma conta do site: seus saves ficam iguais no celular, no computador e na web. Sem internet, o app continua funcionando e sincroniza depois.'
+              : 'Sem o endereço do site, a conta e os dados ficam só neste aparelho.'}
           </Text>
+          {server === null ? (
+            <Pressable accessibilityRole="button" onPress={() => setServer(cloud.url)} style={{ alignSelf: 'center', marginTop: 8, padding: 6 }}>
+              <Text style={{ fontFamily: font, color: c.harvest, fontSize: 12.5, fontWeight: '600' }}>{cloud.url ? `Site: ${cloud.url.replace(/^https?:\/\//, '')} · trocar` : 'Configurar endereço do site'}</Text>
+            </Pressable>
+          ) : (
+            <View style={{ marginTop: 10 }}>
+              <TextInput accessibilityLabel="Endereço do site" value={server} onChangeText={setServer} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://seu-agrogestor.vercel.app" placeholderTextColor={c.faint} style={input} />
+            </View>
+          )}
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>

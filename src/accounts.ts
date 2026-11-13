@@ -3,9 +3,10 @@ import { hashPassword, randomSalt } from './sha256';
 import { Data } from './types';
 
 /**
- * Contas e saves locais. Tudo fica no próprio aparelho (AsyncStorage no
- * celular, localStorage/IndexedDB no Windows e no navegador). Não há servidor:
- * cada conta é uma trava local, e cada save é uma fazenda separada.
+ * Contas e saves no aparelho (AsyncStorage no celular, localStorage/IndexedDB
+ * no Windows e no navegador). Com a conta do site, os saves também sobem para
+ * o servidor (veja cloud.ts e sync.ts); esta cópia local deixa o app funcionar
+ * sem internet. Cada save é uma fazenda separada.
  *
  * O módulo recebe o armazenamento por parâmetro para poder ser testado em Node.
  */
@@ -47,6 +48,7 @@ export const KEYS = {
   saves: (userId: string) => `agrogestor:saves:${userId}`,
   save: (saveId: string) => `agrogestor:save:${saveId}`,
   lastSave: (userId: string) => `agrogestor:ultimo-save:${userId}`,
+  deleted: (userId: string) => `agrogestor:apagados:${userId}`,
   legacy: 'agrogestor:v1',
   legacyDone: 'agrogestor:v1:migrado',
 };
@@ -149,20 +151,28 @@ export async function loadSave(kv: KV, saveId: string): Promise<Data | null> {
   return raw ? normalizeData(raw) : null;
 }
 
-export async function writeSave(kv: KV, userId: string, saveId: string, data: Data): Promise<void> {
+export async function writeSave(kv: KV, userId: string, saveId: string, data: Data, updatedAt = nowIso()): Promise<void> {
   await kv.setItem(KEYS.save(saveId), JSON.stringify(data));
   const saves = await readJson<SaveMeta[]>(kv, KEYS.saves(userId), []);
-  const next = saves.map((s) => (s.id === saveId ? { ...s, farmName: data.settings.farmName, updatedAt: nowIso() } : s));
+  const next = saves.map((s) => (s.id === saveId ? { ...s, farmName: data.settings.farmName, updatedAt } : s));
   await kv.setItem(KEYS.saves(userId), JSON.stringify(next));
 }
 
 export async function renameSave(kv: KV, userId: string, saveId: string, name: string): Promise<void> {
   if (!name.trim()) throw new Error('Dê um nome ao save.');
   const saves = await readJson<SaveMeta[]>(kv, KEYS.saves(userId), []);
-  await kv.setItem(KEYS.saves(userId), JSON.stringify(saves.map((s) => (s.id === saveId ? { ...s, name: name.trim() } : s))));
+  await kv.setItem(KEYS.saves(userId), JSON.stringify(saves.map((s) => (s.id === saveId ? { ...s, name: name.trim(), updatedAt: nowIso() } : s))));
 }
 
 export async function deleteSave(kv: KV, userId: string, saveId: string): Promise<void> {
+  // Lembra do save apagado para apagar também no site na próxima sincronização.
+  const gone = await readJson<string[]>(kv, KEYS.deleted(userId), []);
+  if (!gone.includes(saveId)) await kv.setItem(KEYS.deleted(userId), JSON.stringify([...gone, saveId]));
+  await removeLocalSave(kv, userId, saveId);
+}
+
+/** Tira o save só deste aparelho (usado quando ele foi apagado em outro lugar). */
+export async function removeLocalSave(kv: KV, userId: string, saveId: string): Promise<void> {
   const saves = await readJson<SaveMeta[]>(kv, KEYS.saves(userId), []);
   await kv.setItem(KEYS.saves(userId), JSON.stringify(saves.filter((s) => s.id !== saveId)));
   await kv.removeItem(KEYS.save(saveId));
@@ -184,4 +194,51 @@ export async function migrateLegacy(kv: KV, userId: string): Promise<SaveMeta | 
   const data = normalizeData(raw);
   if (data.settings.demo) return null;
   return createSave(kv, userId, { name: data.settings.farmName, map: data.settings.map ?? 'outro', mapName: '', mode: 'importado' }, data);
+}
+
+/* ---------- Sincronização com o site ---------- */
+
+export const getDeleted = (kv: KV, userId: string) => readJson<string[]>(kv, KEYS.deleted(userId), []);
+export async function clearDeleted(kv: KV, userId: string, saveId: string): Promise<void> {
+  const gone = await getDeleted(kv, userId);
+  await kv.setItem(KEYS.deleted(userId), JSON.stringify(gone.filter((x) => x !== saveId)));
+}
+
+/** Grava um save que veio do site, se ele ainda for mais novo que o daqui. */
+export async function putRemoteSave(kv: KV, userId: string, meta: Omit<SaveMeta, 'userId'>, data: Data): Promise<boolean> {
+  const saves = await readJson<SaveMeta[]>(kv, KEYS.saves(userId), []);
+  const cur = saves.find((s) => s.id === meta.id);
+  if (cur && cur.updatedAt >= meta.updatedAt) return false;
+  await kv.setItem(KEYS.save(meta.id), JSON.stringify(data));
+  const next: SaveMeta = { ...meta, userId };
+  await kv.setItem(KEYS.saves(userId), JSON.stringify(cur ? saves.map((s) => (s.id === meta.id ? next : s)) : [...saves, next]));
+  return true;
+}
+
+/**
+ * Conta do site neste aparelho: guarda uma cópia (com a senha embaralhada) para
+ * conseguir entrar sem internet. Se já existia uma conta local com o mesmo
+ * usuário (ou a indicada em `adoptFrom`), os saves dela passam para a conta do
+ * site (e vão para a nuvem).
+ */
+export async function upsertCloudUser(kv: KV, cu: { id: string; username: string; name: string }, password?: string, adoptFrom?: string): Promise<PublicUser> {
+  const users = await listUsers(kv);
+  const username = normUser(cu.username);
+  const same = users.find((u) => u.id === cu.id);
+  const local = users.find((u) => u.id !== cu.id && (u.id === adoptFrom || u.username === username));
+  const salt = password ? randomSalt() : same?.salt ?? '';
+  const user: User = { id: cu.id, name: cu.name, username, salt, hash: password ? hashPassword(password, salt) : same?.hash ?? '', createdAt: same?.createdAt ?? nowIso() };
+  if (local) {
+    const mine = await readJson<SaveMeta[]>(kv, KEYS.saves(cu.id), []);
+    const theirs = await readJson<SaveMeta[]>(kv, KEYS.saves(local.id), []);
+    const moved = theirs.filter((t) => !mine.some((m) => m.id === t.id)).map((t) => ({ ...t, userId: cu.id }));
+    await kv.setItem(KEYS.saves(cu.id), JSON.stringify([...mine, ...moved]));
+    await kv.removeItem(KEYS.saves(local.id));
+    if ((await getSession(kv)) === local.id) await setSession(kv, cu.id);
+    const last = await getLastSave(kv, local.id);
+    if (last && !(await getLastSave(kv, cu.id))) await setLastSave(kv, cu.id, last);
+    await setLastSave(kv, local.id, null);
+  }
+  await kv.setItem(KEYS.users, JSON.stringify([...users.filter((u) => u.id !== cu.id && u.id !== local?.id), user]));
+  return pub(user);
 }
