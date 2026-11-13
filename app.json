@@ -41,7 +41,7 @@
       "expo-video"
     ],
     "extra": {
-      "apiUrl": ""
+      "apiUrl": "https://agrogestor-gules.vercel.app"
     }
   }
 }
