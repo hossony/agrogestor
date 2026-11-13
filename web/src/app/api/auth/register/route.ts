@@ -20,7 +20,9 @@ export const POST = route(async (req: Request) => {
     user = await one<{ id: string }>('insert into users (code, username, name, password_hash) values ($1, $2, $3, $4) on conflict (code) do nothing returning id', [newFriendCode(), username, name, hash]);
   }
   if (!user) throw new HttpError(500, 'Não foi possível criar a conta agora. Tente de novo.');
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE, await signSession(user.id), cookieOptions);
+  // O site usa o cookie; o app do celular guarda o token e manda no cabeçalho Authorization.
+  const token = await signSession(user.id);
+  const res = NextResponse.json({ ok: true, token });
+  res.cookies.set(COOKIE, token, cookieOptions);
   return res;
 });

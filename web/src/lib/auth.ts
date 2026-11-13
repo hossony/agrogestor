@@ -1,6 +1,6 @@
 import 'server-only';
 import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { one } from './db';
 import { COOKIE, readSession } from './session';
@@ -18,8 +18,11 @@ export interface Me {
 export const hashPassword = (p: string) => bcrypt.hash(p, 10);
 export const checkPassword = (p: string, h: string) => bcrypt.compare(p, h);
 
+/** Sessão do site (cookie) ou do app do celular/Windows (Authorization: Bearer). */
 export async function currentUser(): Promise<Me | null> {
-  const id = await readSession((await cookies()).get(COOKIE)?.value);
+  const auth = (await headers()).get('authorization');
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : (await cookies()).get(COOKIE)?.value;
+  const id = await readSession(token);
   if (!id) return null;
   return one<Me>('select id, code, username, name, bio, avatar_url, banner_url from users where id = $1', [id]);
 }

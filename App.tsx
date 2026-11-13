@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { Bell, BookImage, CalendarRange, Camera, Film, GraduationCap, HandCoins, LayoutDashboard, ListChecks, Map as MapIcon, Menu, PawPrint, Plus, Settings as SettingsIcon, Sprout, Tractor, Wallet, Warehouse, Wheat } from 'lucide-react-native';
+import { Bell, BookImage, Flame, CalendarRange, Camera, Film, GraduationCap, HandCoins, LayoutDashboard, ListChecks, Map as MapIcon, Menu, PawPrint, Plus, Settings as SettingsIcon, Sprout, Tractor, Wallet, Warehouse, Wheat } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, BackHandler, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,8 @@ import { farmAlerts } from './src/alerts';
 import { systemNotify } from './src/notify';
 import Animals from './src/screens/Animals';
 import Calendar from './src/screens/Calendar';
+import Community from './src/screens/Community';
+import { CommunityProvider, useCommunity } from './src/community/store';
 import { Nav, Route } from './src/screens/common';
 import Crops from './src/screens/Crops';
 import Dashboard from './src/screens/Dashboard';
@@ -32,6 +34,7 @@ import { MONTHS_FULL, yearLabel } from './src/utils';
 
 type IconType = React.ComponentType<{ size?: number; color?: string }>;
 const ROUTES: { key: Route; label: string; icon: IconType; group: string }[] = [
+  { key: 'comunidade', label: 'Comunidade', icon: Flame, group: 'Comunidade' },
   { key: 'painel', label: 'Painel', icon: LayoutDashboard, group: 'Fazenda' },
   { key: 'avisos', label: 'Avisos', icon: Bell, group: 'Fazenda' },
   { key: 'talhoes', label: 'Talhões', icon: MapIcon, group: 'Fazenda' },
@@ -48,7 +51,7 @@ const ROUTES: { key: Route; label: string; icon: IconType; group: string }[] = [
   { key: 'culturas', label: 'Culturas', icon: Wheat, group: 'Patrimônio' },
   { key: 'ajustes', label: 'Ajustes', icon: SettingsIcon, group: 'Patrimônio' },
 ];
-const TABS: Route[] = ['painel', 'safras', 'diario'];
+const TABS: Route[] = ['painel', 'comunidade', 'diario'];
 const QUICK: { label: string; route: Route; icon: IconType; intent?: string }[] = [
   { label: 'Vídeo da colheita', route: 'diario', icon: Film, intent: 'modelo:Colheita' },
   { label: 'Vídeo do plantio', route: 'diario', icon: Film, intent: 'modelo:Plantio' },
@@ -75,6 +78,7 @@ const SCREENS: Record<Route, React.ComponentType<Nav>> = {
   culturas: Crops,
   ajustes: Settings,
   guia: Guide,
+  comunidade: Community,
 };
 
 function Brand() {
@@ -88,6 +92,12 @@ function Brand() {
   );
 }
 
+/** Avisos da comunidade (não lidos + convites + pedidos de amizade). */
+function useSocialBadge() {
+  const k = useCommunity();
+  return k.conn ? k.unread + k.invites + k.friend_requests : 0;
+}
+
 function CountBadge({ n }: { n: number }) {
   if (!n) return null;
   return (
@@ -99,6 +109,7 @@ function CountBadge({ n }: { n: number }) {
 
 function Sidebar({ route, go, unread }: { route: Route; go: (r: Route) => void; unread: number }) {
   const { data, now, currentSave, closeSave } = useStore();
+  const social = useSocialBadge();
   const groups = [...new Set(ROUTES.map((r) => r.group))];
   return (
     <View style={{ width: 232, backgroundColor: c.sidebar, paddingVertical: 20, paddingHorizontal: 12 }}>
@@ -115,7 +126,7 @@ function Sidebar({ route, go, unread }: { route: Route; go: (r: Route) => void; 
                   {on ? <View style={{ position: 'absolute', left: -12, top: 8, bottom: 8, width: 4, borderRadius: 2, backgroundColor: c.harvest }} /> : null}
                   <Icon size={18} color={on ? c.harvest : c.sidebarInk} />
                   <Text style={{ fontFamily: font, fontSize: 14.5, fontWeight: on ? '700' : '500', color: on ? '#fff' : c.sidebarInk, flex: 1 }}>{r.label}</Text>
-                  {r.key === 'avisos' ? <CountBadge n={unread} /> : null}
+                  {r.key === 'avisos' ? <CountBadge n={unread} /> : r.key === 'comunidade' ? <CountBadge n={social} /> : null}
                 </Pressy>
               );
             })}
@@ -134,7 +145,7 @@ function Sidebar({ route, go, unread }: { route: Route; go: (r: Route) => void; 
 }
 
 /** Aba inferior: o ícone salta e uma pílula cresce embaixo quando fica ativa. */
-function TabItem({ label, Icon, on, onPress }: { label: string; Icon: IconType; on: boolean; onPress: () => void }) {
+function TabItem({ label, Icon, on, onPress, badge = 0 }: { label: string; Icon: IconType; on: boolean; onPress: () => void; badge?: number }) {
   const v = useRef(new Animated.Value(on ? 1 : 0)).current;
   useEffect(() => {
     Animated.spring(v, { toValue: on ? 1 : 0, useNativeDriver: Platform.OS !== 'web', speed: 16, bounciness: 12 }).start();
@@ -143,6 +154,7 @@ function TabItem({ label, Icon, on, onPress }: { label: string; Icon: IconType; 
     <Pressy accessibilityRole="button" accessibilityState={{ selected: on }} onPress={onPress} scaleTo={0.9} style={{ flex: 1, alignItems: 'center', paddingTop: 8, paddingBottom: 6, gap: 3 }}>
       <Animated.View style={{ transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -2] }) }, { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }] }}>
         <Icon size={21} color={on ? c.primary : c.muted} />
+        {badge ? <View style={{ position: 'absolute', top: -6, right: -12 }}><CountBadge n={badge} /></View> : null}
       </Animated.View>
       <Text style={{ fontFamily: font, fontSize: 11.5, fontWeight: on ? '700' : '500', color: on ? c.primary : c.muted }}>{label}</Text>
       <Animated.View style={{ height: 3, width: 18, borderRadius: 2, backgroundColor: c.primary, opacity: v, transform: [{ scaleX: v }] }} />
@@ -152,15 +164,16 @@ function TabItem({ label, Icon, on, onPress }: { label: string; Icon: IconType; 
 
 function BottomBar({ route, go, openMenu, openQuick }: { route: Route; go: (r: Route) => void; openMenu: () => void; openQuick: () => void }) {
   const insets = useSafeAreaInsets();
-  const item = (key: string, label: string, Icon: IconType, on: boolean, onPress: () => void) => <TabItem key={key} label={label} Icon={Icon} on={on} onPress={onPress} />;
+  const social = useSocialBadge();
+  const item = (key: string, label: string, Icon: IconType, on: boolean, onPress: () => void, badge = 0) => <TabItem key={key} label={label} Icon={Icon} on={on} onPress={onPress} badge={badge} />;
   const tab = (k: Route) => {
     const r = ROUTES.find((x) => x.key === k)!;
-    return item(k, r.label, r.icon, route === k, () => go(k));
+    return item(k, r.label, r.icon, route === k, () => go(k), k === 'comunidade' ? social : 0);
   };
   return (
     <View style={{ flexDirection: 'row', backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.line, paddingBottom: insets.bottom }}>
       {tab('painel')}
-      {tab('safras')}
+      {tab('comunidade')}
       <View style={{ flex: 1, alignItems: 'center' }}>
         <Pressy accessibilityRole="button" accessibilityLabel="Novo registro" onPress={openQuick} scaleTo={0.88} style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', marginTop: -18, borderWidth: 4, borderColor: c.bg }}>
           <Plus size={26} color="#fff" />
@@ -329,7 +342,11 @@ function Gate() {
   if (!ready) return <View style={{ flex: 1, backgroundColor: c.sidebar }} />;
   if (!logged) return <Login />;
   if (!currentSave) return <Saves />;
-  return <Shell key={currentSave.id} />;
+  return (
+    <CommunityProvider key={currentSave.id}>
+      <Shell />
+    </CommunityProvider>
+  );
 }
 
 export default function App() {

@@ -39,6 +39,9 @@
         }
       ],
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "apiUrl": ""
+    }
   }
 }

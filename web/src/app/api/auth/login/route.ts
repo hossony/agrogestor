@@ -8,7 +8,9 @@ export const POST = route(async (req: Request) => {
   const username = str(b.username, 40).toLowerCase().replace(/^@/, '');
   const user = await one<{ id: string; password_hash: string }>('select id, password_hash from users where username = $1', [username]);
   if (!user || !(await checkPassword(String(b.password ?? ''), user.password_hash))) throw new HttpError(401, 'Usuário ou senha incorretos.');
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE, await signSession(user.id), cookieOptions);
+  // O site usa o cookie; o app do celular guarda o token e manda no cabeçalho Authorization.
+  const token = await signSession(user.id);
+  const res = NextResponse.json({ ok: true, token });
+  res.cookies.set(COOKIE, token, cookieOptions);
   return res;
 });

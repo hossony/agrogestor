@@ -38,6 +38,10 @@ As imagens são reduzidas para no máximo 1600 px (WebP) no navegador antes do e
 
 Para trocar uma variável depois, faça um novo deploy (as `NEXT_PUBLIC_*` entram no build).
 
+## App do celular e do Windows
+
+O app (aba **Comunidade**) usa esta mesma API e este mesmo banco. Ele entra com `Authorization: Bearer <token>` (o login devolve o token) em vez de cookie; `src/proxy.ts` libera o CORS da `/api` para o app, que roda fora deste domínio. Fotos e vídeos do app vão direto para o Vercel Blob com um token temporário gerado em `/api/upload`. O push para o app instalado vai pelo serviço da Expo (tabela `expo_push_tokens`); veja o README da raiz para configurar o build.
+
 ## Notificações no celular
 
 - **Android (Chrome, Edge, Samsung Internet):** em *Avisos* ou *Editar perfil*, toque em **Ligar**. Os convites chegam mesmo com o navegador fechado.

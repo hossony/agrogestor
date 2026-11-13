@@ -22,6 +22,22 @@ Feito em React Native (Expo SDK 58) com um único código para Android e Windows
 
 A pasta `web/` tem o site (Next.js) para publicar na Vercel: feed com imagens e vídeos, curtidas e foguinho 🔥, amigos pelo ID com a fazenda deles (patrimônio, campos, máquinas e animais), perfil com foto e banner, e convites para jogar com notificação no celular. O app de gestão vai junto, em `/gestao`. Veja `web/README.md` para publicar com banco e armazenamento gratuitos.
 
+## Comunidade no app (sincronizada com o site)
+
+A aba **Comunidade** do app (celular, Windows e `/gestao`) usa o mesmo servidor e o mesmo banco do site. Feed, curtidas e foguinhos, comentários, amigos, convites para jogar, avisos e perfil aparecem iguais nos dois lados.
+
+- **Conectar:** na aba Comunidade, informe o endereço do site (ex.: `agrogestor.vercel.app`) e entre com a conta do site ou crie uma. Essa conta é diferente da conta local do app (que guarda os saves no aparelho). Para o endereço já vir preenchido, coloque-o em `app.json` › `expo.extra.apiUrl` ou na variável `EXPO_PUBLIC_API_URL` do build.
+- **Fazenda no perfil:** em Comunidade › Perfil, ligue **Sincronizar** para o save aberto. Cada mudança no save vai para o perfil depois de 5 segundos (patrimônio, campos, máquinas, animais e silo). As fotos locais não são enviadas.
+- **Fotos e vídeos:** vão direto do celular para o Vercel Blob (o servidor só autoriza o envio).
+- **Avisos ao vivo:** com o app aberto, os convites e as curtidas aparecem na tela em segundos.
+- **Notificações com o app fechado (Android):** precisam de um build com push configurado:
+  1. `eas init`. Ele mostra o `projectId`; como a configuração é dinâmica (`app.config.js`), coloque-o à mão em `app.json` › `expo.extra.eas.projectId`.
+  2. No [Firebase](https://console.firebase.google.com), crie um projeto, adicione um app Android com o pacote `com.elielfilho.agrogestor`, baixe o `google-services.json` para a raiz do repositório e acrescente `"googleServicesFile": "./google-services.json"` em `app.json` › `expo.android`.
+  3. `eas credentials` › Android › Google Service Account (FCM V1): envie a chave da conta de serviço do Firebase.
+  4. `npm run build:apk` e instale o APK novo. Na aba Jogar, toque em **Ligar** notificações.
+
+  O convite chega com os botões **Bora jogar!** e **Agora não**. O envio é pelo serviço gratuito da Expo; no servidor não é preciso configurar nada (a variável `EXPO_ACCESS_TOKEN` é opcional).
+
 ## Rodar em desenvolvimento
 
 ```bash
@@ -88,7 +104,8 @@ src/utils.ts          formatação, calendário e curva de preço
 src/ui.tsx            componentes: tabela/cartões, formulário, foto, ficha de detalhes, faixa das estações
 src/data/crops.ts     catálogo de culturas do FS25
 src/data/demo.ts      fazenda de exemplo
-src/screens/          uma tela por arquivo
+src/screens/          uma tela por arquivo (Community.tsx: feed, amigos, jogar, avisos e perfil)
+src/community/        cliente da API do site, sessão, avisos ao vivo, push e sincronização da fazenda
 desktop/              janela Electron para Windows
 app.config.js         lê o app.json; com EXPO_BASE_URL exporta a versão web para um subcaminho (/gestao no site)
 web/                  site com a comunidade (Next.js, Vercel)

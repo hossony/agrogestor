@@ -92,3 +92,11 @@ create table if not exists push_subscriptions (
   created_at timestamptz not null default now()
 );
 create index if not exists push_user on push_subscriptions (user_id);
+
+-- Aparelhos com o app instalado (Android/iOS): token do serviço de push da Expo.
+create table if not exists expo_push_tokens (
+  token text primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists expo_push_user on expo_push_tokens (user_id);
